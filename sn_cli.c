@@ -134,7 +134,7 @@ int main()
 	}
 #endif
 	printf("client process -- %d\n",getpid());
-	sockmsg.type = SOCKMSG_TYPE_UPDATE;
+	sockmsg.type = SOCKMSG_TYPE_WRITE;
 	strcpy(sockmsg.file_name,"some might say.mp3");
 	strcpy(sockmsg.dest_ip,FS_SUPERNODE_IP);
 	if(sctp_send_sock_recv_rpl(sockmsg.dest_ip,&sockmsg,&rplmsg) != 0){

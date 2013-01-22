@@ -28,7 +28,7 @@ typedef struct _FIFO_MSG{
 	struct _FIFO_MSG * pre;
 	u32 len;                        /* client addr len */
 	struct sockaddr_in cli_addr;    /* client addr     */
-	struct sctp_sndrcvinfo;			/* send_recv_info  */
+	struct sctp_sndrcvinfo sndrcv_info;			/* send_recv_info  */
 	SOCK_MSG sock_msg;				/* sock_msg        */
 }FIFO_MSG;
 void sig_chld(int signo)
@@ -91,7 +91,7 @@ u32 do_sock_msg(SOCK_MSG *sock_msg,RPL_MSG *rpl_msg)
 	 * deal with sock_msg and generate rpl_msg */
 	u32 ret = 0;
 	/* for test */
-	RPL_MSG_ERR = RPL_ERR_BUF_TO_XML;;
+	RPL_MSG_ERR = RPL_OK;;
 	return ret;
 }
 int main()
