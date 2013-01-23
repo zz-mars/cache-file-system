@@ -156,36 +156,6 @@ int main()
 #if 0
 			printf("%s",buf);
 #endif
-			/*-------------------------------- trash start ----------------------------------*/
-#if 0
-			/* not used any more */
-			if(atexit(rm_xml_file_at_exit) != 0){
-				perror("atexit");
-				fprintf(stderr,"atexit fail!please remove xml file -- %s manually!\n",xml_file);
-			}
-#endif
-#if 0
-			/* not used any more
-			 * now use pipe for xml_file relay */
-			bzero(xml_file,XML_FILE_NAME_LEN);
-			snprintf(xml_file,XML_FILE_NAME_LEN,"%d.xml",pid);
-			if((xml_fd = open(xml_file,O_RDWR | O_CREAT | O_TRUNC,0664)) == -1){
-				fprintf(stderr,"%s : OPEN WITH O_RDWR | O_CREAT | O_TRUNC,0664 FAIL!\n",xml_file);
-				exit(EXIT_FAILURE);
-			}
-			close(xml_fd);
-#endif
-			/*-------------------------------- trash end  ----------------------------------*/
-		
-			/*---------------------------------- convert xml_buf to sock_msg start ---------------------------------------*/
-#if 0
-			/* convert xml_buf to sock_msg in child process 
-			 * parse_xml from stdin */
-			if(buf_to_sock_msg(sock_msg,buf,XML_BUFSZ) != 0){
-				fprintf(stderr,"buf_to_sock_msg fail!\n");
-				exit(EXIT_FAILURE);
-			}
-#endif
 #if 1
 			/* parse_xml from file descriptor */
 			if(buf_to_sock_msg_parse_from_fd(sock_msg,buf,XML_BUFSZ) != 0){
@@ -206,28 +176,6 @@ int main()
 			}
 #endif
 			/*---------------------------------------- do_sock_msg end  ------------------------------------*/
-			/*-------------------------------- trash start ----------------------------------*/
-#if 0
-			/* old version of convert from rpl_msg to buf 
-			 * 1) rpl_msg --> xml_file
-			 * 2) xml_file --> buf */
-			rpl_msg_to_xml(rpl_msg,xml_file);
-			if(xml_to_buf(buf,XML_BUFSZ,xml_file) != 0){
-				fprintf(stderr,"xml_to_buf fail!\n");
-				exit(EXIT_FAILURE);
-			}
-#endif
-			/* new way
-			 * convert rpl_msg directly to buf */
-#if 0
-			/* not used any more */
-			if(rpl_msg_to_buf_with_command_line_pipe(rpl_msg,buf,XML_BUFSZ) != 0){
-				fprintf(stderr,"rpl_msg_to_buf fail!\n");
-				exit(EXIT_FAILURE);
-			}
-//			printf("rpl_msg_buf : \n%s",buf);
-#endif
-			/*-------------------------------- trash end  ----------------------------------*/
 			/*-------------------------------- convert rpl_msg to xml_buf start ------------------------------*/
 			if(rpl_msg_to_buf(rpl_msg,buf,XML_BUFSZ) != 0){
 				fprintf(stderr,"buf_to_rpl_msg fail!\n");
