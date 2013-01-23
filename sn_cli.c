@@ -27,28 +27,6 @@ u32 sctp_send_sock_recv_rpl(u8 *sn_ip,SOCK_MSG *sock_msg,RPL_MSG *rpl_msg)
 	bzero(&events,sizeof(events));
 	events.sctp_data_io_event = 1;
 	setsockopt(sock_fd,IPPROTO_SCTP,SCTP_EVENTS,&events,sizeof(events));
-	/*---------------------------------- trash start -------------------------------------*/
-#if 0
-	/* old version of convert sock_msg to buf */	
-	/* sock_msg_to_xml */
-	sock_msg_to_xml(sock_msg,xml_file);
-
-	if(xml_to_buf(buf,XML_BUFSZ,xml_file) != 0){
-		ret = 1;
-		fprintf(stderr,"xml_to_buf_msg fail!\n");
-		goto op_over;
-	}
-#endif
-#if 0
-	/* not used any more */
-	/* now use a new way */
-	if(sock_msg_to_buf_with_command_line_pipe(sock_msg,buf,XML_BUFSZ) != 0){
-		ret = 1;
-		fprintf(stderr,"sock_msg_to_buf fail!\n");
-		goto op_over;
-	}
-#endif
-	/*---------------------------------- trash end  -------------------------------------*/
 	/*------------------------------- convert sock_msg to buf start -------------------------------------*/
 #if 1
 	if(sock_msg_to_buf(sock_msg,buf,XML_BUFSZ) != 0){
@@ -90,19 +68,6 @@ u32 sctp_send_sock_recv_rpl(u8 *sn_ip,SOCK_MSG *sock_msg,RPL_MSG *rpl_msg)
 	printf("%s\n",buf);
 	printf("-------  rpl_msg_end  -------\n");
 #endif
-	/*--------------------------- tarsh start ----------------------------*/
-#if 0
-	if(buf_to_file(buf,XML_BUFSZ,xml_fifo) != 0){
-		ret = 4;
-		fprintf(stderr,"buf_msg_to_xml_file fail!\n");
-		goto op_over;
-	}
-	if(file_to_rpl_msg(xml_fifo,rpl_msg) != 0){
-		ret = 5;
-		fprintf(stderr,"xml_to_rpl_msg fail!\n");
-	}
-#endif
-	/*--------------------------- tarsh end ----------------------------*/
 	/*----------------------- convert xml_buf to rpl_msg start --------------------------*/
 #if 0
 	if(buf_to_rpl_msg(rpl_msg,buf,XML_BUFSZ) != 0){
