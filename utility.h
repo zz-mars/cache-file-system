@@ -14,9 +14,9 @@ _PROTOTYPE(int pthread_unblock_sig,(int signo));
 _PROTOTYPE(int init_md,(char * path));
 _PROTOTYPE(void print_err_msg,(int i));
 _PROTOTYPE(Sigfunc * Signal,(int signo,Sigfunc * func));
-_PROTOTYPE(extern inline void u8_to_str,(char ch,char *buf,u32 bufsiz));
-_PROTOTYPE(extern inline void u32_to_str,(u32 i,char *buf,u32 bufsiz));
-_PROTOTYPE(extern inline void u64_to_str,(u64 i,char *buf,u32 bufsiz));
+_PROTOTYPE(inline void u8_to_str,(char ch,char *buf,u32 bufsiz));
+_PROTOTYPE(inline void u32_to_str,(u32 i,char *buf,u32 bufsiz));
+_PROTOTYPE(inline void u64_to_str,(u64 i,char *buf,u32 bufsiz));
 #if 1
 _PROTOTYPE(void do_space_in_file_name,(u8 *str,u8 *dest));
 _PROTOTYPE(int rpl_msg_to_buf_with_command_line_pipe,(RPL_MSG *rpl_msg,u8 *buf,u32 bufsiz));
