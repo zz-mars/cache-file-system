@@ -19,6 +19,10 @@
 #include<stdbool.h>
 #include<stdint.h>
 #include<tcrdb.h>
+
+#define ONE_K               (1<<10)
+#define ONE_M               (1<<20)
+#define ONE_G               (1<<30)
 #define COMMAND_LINE        512
 #define CH_SPACE            0x20
 #define FILE_PATH_LEN       260    /* file_name length */
