@@ -1,4 +1,4 @@
-/* file system namespace manager 
+/* cache file system namespace manager 
  * BY grant chen 27,Feb,2013 */
 #include"glob.h"
 #define DIRECTORY_FILE   00
