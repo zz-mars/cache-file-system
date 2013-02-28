@@ -51,39 +51,56 @@ ns_node * get_ns_node(u8 * path)
 	/* parse path 
 	 * get ns_node */
 	u8 file_name[FILE_PATH_LEN];
-	ns_node * lkup_dir;
+	ns_node * lkup_node;
 	u32 fn_depth = 0,inword = 0;
 	u32 i = strlen(path);
 	u8 * fn_head = NULL,*fn_tail = NULL,*p = path;
-	u8 * tail = path + i - 1;
+	u8 * tail = path + i;/* tail points to the one character right after the last byte in path */
 	if(*p == '/'){
-		lkup_dir = &cache_fs_root_dir;
+		lkup_node = &cache_fs_root_dir;
 		inword = 0;
 	}else{
-		lkup_dir = current_working_dir;
+		lkup_node = current_working_dir;
 		inword = 1;
 		fn_depth++;
 	}
 	for(p = path;p <= tail;p++){
-		if(inword == 0 && *p != '/'){
+		if(inword == 0 && p < tail && *p != '/'){
 			/* just right enter word */
 			fn_head = p;
 			inword = 1;
 			fn_depth++;
 		}
 		/* just right leave word */
-		if(inword == 1 && *p == '/'){
+		if(inword == 1 && (*p == '/' || p == tail)){
+			/* when p == tail,POINTER p cannot be used to reference any data,
+			 * just the position of a file name 's tail */
 			fn_tail = p;
 			inword = 0;
 		}
 		if(fn_head != NULL && fn_tail != NULL && fn_head <= fn_tail){
-			/* look up file name identified by string from fn_head to fn_tail in lkup_dir */
+			/* look up file name identified by string from fn_head to fn_tail in lkup_node */
+			if(lkup_node->is_directory != DIRECTORY_FILE){
+				serrmsg("not a directory!");
+				lkup_node = (ns_node *)0;
+				break;
+			}
 			i = fn_tail - fn_head;
 			strncpy(file_name,fn_head,len);
 			*(file_name + i) = '\0'; 
-			i = binary_seach_file(file_name,lkup_dir->child,0,lkup_dir->how_many_children - 1);
+			i = binary_seach_file(file_name,lkup_node->child,0,lkup_node->how_many_children - 1);
+			if(strcmp(file_name,lkup_node->child[i]->name) != 0){
+				/* look up fail */
+				serrmsg("no such file or directory!");
+				lkup_node = (ns_node *)0;
+				break;
+			}
+			lkup_node = lkup_node->child[i];
+			fn_head = NULL;
+			fn_tail = NULL;
 		}
 	}
+	return lkup_node;
 }
 ns_node * mkfile(ns_node * cwd,u8 * file_name,u8 file_type)
 {
@@ -156,6 +173,41 @@ u32 rmfile(ns_node * cwd,u8 * file_name)
 	/*-----------------------------------------------------------*/
 	free(rmnode->name);
 	free(rmnode);
+	return 0;
+}
+u32 changedir(u8 * file_name)
+{
+	ns_node * cd_wd = get_ns_node(file_name);
+	if(cd_wd == (ns_node *)0){
+		perrmsg("get_ns_node");
+		return 1;
+	}
+	if(cd_wd->is_directory != DIRECTORY_FILE){
+		fprintf(stderr,"not a directory!");
+		return 2;
+	}
+	current_working_dir = cd_wd;
+	return 0;
+}
+u32 lsfile(u8 * file_name)
+{
+	/* the return value can be ns_node* arrary
+	 * or something else */
+	ns_node * ls_file = get_ns_node(file_name);
+	if(ls_file == (ns_node *)0){
+		perrmsg("get_ns_node");
+		return 1;
+	}
+	if(ls_file->is_directory == REGULAR_FILE){
+		/* for regular file,just list this file */
+	}else if(ls_file->is_directory == DIRECTORY_FILE){
+		/* for dir file,list all its children. 
+		 * some options can be provided here,
+		 * such as -r :recursively list file
+		 *		   -a : list all files 
+		 *		   -s : list in order
+		 *		   etc...*/
+	}
 	return 0;
 }
 int main()

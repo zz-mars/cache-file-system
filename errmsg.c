@@ -4,7 +4,7 @@
 u8 err_msg[ERR_MSG_LEN];
 void perrmsg(u8 * msg)
 {
-	fprintf(stdout,"%s:%s\n",msg,err_msg);
+	fprintf(stderr,"%s:%s\n",msg,err_msg);
 	return;
 }
 void serrmsg(u8 * msg)
