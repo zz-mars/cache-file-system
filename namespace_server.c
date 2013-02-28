@@ -81,7 +81,7 @@ ns_node * get_ns_node(u8 * path)
 		if(fn_head != NULL && fn_tail != NULL && fn_head <= fn_tail){
 			/* look up file name identified by string from fn_head to fn_tail in lkup_node */
 			if(lkup_node->is_directory != DIRECTORY_FILE){
-				serrmsg("not a directory!");
+				serrmsg("%s NOT A DIRECTORY!",lkup_node->name);
 				lkup_node = (ns_node *)0;
 				break;
 			}
@@ -91,7 +91,7 @@ ns_node * get_ns_node(u8 * path)
 			i = binary_seach_file(file_name,lkup_node->child,0,lkup_node->how_many_children - 1);
 			if(strcmp(file_name,lkup_node->child[i]->name) != 0){
 				/* look up fail */
-				serrmsg("no such file or directory!");
+				serrmsg("%s NO SUCH FILE OR DIRECTORY UNDER DIRECTORY %s!",file_name,lkup_node->name);
 				lkup_node = (ns_node *)0;
 				break;
 			}
@@ -111,19 +111,19 @@ ns_node * mkfile(ns_node * cwd,u8 * file_name,u8 file_type)
 	if((strcmp(file_name,child[i]->name) == 0) || !FILE_TYPE_VALIDATION(file_type)){
 		/* 1) file already exist
 		 * 2) illegal file_type */
-		serrmsg("file already exist or illegal file type!");
+		serrmsg("%s FILE ALREADY EXIST OR ILLEGAL FILE TYPE!",file_name);
 		return (ns_node *)0;
 	}/* else new file should be inserted to position i */
 	ns_node * new_file = (ns_node *)calloc(1,sizeof(ns_node));
 	if(new_file == (ns_node *)0){
-		serrmsg("malloc fail!");
+		serrmsg("MALLOC FAIL!");
 		return new_file;
 	}
 	u32 file_name_len = strlen(file_name);
 	new_file->name = calloc(1,file_name_len + 1);
 	if(new_file->name == NULL){
 		free(new_file);
-		serrmsg("malloc fail!");
+		serrmsg("MALLOC FAIL!");
 		return (ns_node *)0;
 	}
 	strncpy(new_file->name,file_name,file_name_len);
@@ -135,7 +135,7 @@ ns_node * mkfile(ns_node * cwd,u8 * file_name,u8 file_type)
 	if(child == (ns_node **)0){
 		free(new_file->name);
 		free(new_file);
-		serrmsg("realloc fail!");
+		serrmsg("REALLOC FAIL!");
 		return (ns_node *)0;
 	}
 	cwd->child = child;
@@ -155,7 +155,7 @@ u32 rmfile(ns_node * cwd,u8 * file_name)
 	rmnode = child[i];
 	if(strcmp(file_name,rmnode->name) != 0){
 		/* file not exist */
-		serrmsg("file not exist!");
+		serrmsg("%s FILE NOT EXIST!",file_name);
 		return 1;
 	}
 	cwd->child = (ns_node **)calloc(--(cwd->how_many_children),sizeof(ns_node *));

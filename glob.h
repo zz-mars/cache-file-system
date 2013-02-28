@@ -19,6 +19,7 @@
 #include<stdbool.h>
 #include<stdint.h>
 #include<tcrdb.h>
+#include<stdarg.h>
 
 #define ERR_MSG_LEN   1024
 #define ONE_K               (1<<10)

@@ -7,13 +7,11 @@ void perrmsg(u8 * msg)
 	fprintf(stderr,"%s:%s\n",msg,err_msg);
 	return;
 }
-void serrmsg(u8 * msg)
+void serrmsg(const u8 * fmt,...)
 {
-	bzero(err_msg,ERR_MSG_LEN);
-	if(strlen(msg) > ERR_MSG_LEN){
-		fprintf(stderr,"error message too long!\n");
-		return;
-	}
-	strcpy(err_msg,msg);
+	va_list ap;
+	va_start(ap,fmt);
+	vsnprintf(err_msg,ERR_MSG_LEN,fmt,ap);
+	va_end(ap);
 	return;
 }
