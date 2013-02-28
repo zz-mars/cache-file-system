@@ -1,5 +1,5 @@
 /* my own error message reporter */
-#define ERR_MSG_LEN   1024
+#include"glob.h"
 u8 err_msg[ERR_MSG_LEN];
 void perrmsg(u8 * msg)
 {
