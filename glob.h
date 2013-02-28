@@ -20,6 +20,7 @@
 #include<stdint.h>
 #include<tcrdb.h>
 
+#define ERR_MSG_LEN   1024
 #define ONE_K               (1<<10)
 #define ONE_M               (1<<20)
 #define ONE_G               (1<<30)

@@ -22,45 +22,64 @@ static void init_ns
 	cache_fs_root_dir.how_many_children = 0;
 	return;
 }
-static inline u32 FILE_ALREADY_EXIST(ns_node * cwd,u8 * file_name)
+static u32 binary_seach_file(u8 *file_name,ns_node ** child,u32 low,u32 high)
 {
-	/* check if file "file_name" already exists in cwd 
-	 * return value : 
-	 * 1) -1 if already exist
-	 * 2) >=0 if not exist,and this value is the position the new file should be insert to. 
-	 *    This is to make sure the files are in alphabetical order */
-	ns_node * tmp;
-	u32 i = 0,j;
-	for(i = 0;i < cwd->how_many_children;i++){
-		tmp = (cwd->child)[i];
-		j = strcmp(file_name,tmp->name);
-		if(j <= 0){
-			return (j == 0 ? -1 : i);
-		}
+	/* binary search file "file_name" in child array
+	 * return value is the right position or the place where this new file should be inserted to */
+	u32 mid;
+	u32 i;
+	if(high <= low){
+		return low;
 	}
-	/* if we get here,
-	 * we should insert new file to the tail of child array */
-	return i;
+	mid = (high + low)/2;
+	if((i = strcmp(file_name,child[mid]->name)) < 0){
+		high = mid -1;
+	}else if(i == 0){
+		/* find! */
+		return mid;
+	}else{
+		low = mid + 1;
+	}
+	return binary_seach_file(file_name,child,low,high);
 }
 ns_node * mkfile(ns_node * cwd,u8 * file_name,u8 file_type)
 {
 	/*make a new file under current directory*/
-	if(!FILE_TYPE_VALIDATION(file_type)){
+	u32 j;
+	ns_node ** child = cwd->child;
+	u32 i = binary_seach_file(file_name,child,0,cwd->how_many_children - 1);
+	if((strcmp(file_name,child[i]->name) == 0) || !FILE_TYPE_VALIDATION(file_type)){
+		/* 1) file already exist
+		 * 2) illegal file_type */
+		return (ns_node *)0;
+	}/* else new file should be inserted to position i */
+	ns_node * new_file = (ns_node *)calloc(1,sizeof(ns_node));
+	if(new_file == (ns_node *)0){
+		return new_file;
+	}
+	u32 file_name_len = strlen(file_name);
+	new_file->name = calloc(1,file_name_len + 1);
+	if(new_file->name == NULL){
+		free(new_file);
 		return (ns_node *)0;
 	}
-	u32 i;
-	ns_node * new_file = (ns_node *)calloc(sizeof(ns_node),1);
-	u32 file_name_len = strlen(file_name);
-	new_file->name = calloc(file_name_len + 1,1);
 	strncpy(new_file->name,file_name,file_name_len);
 	new_file->is_directory = file_type;
 	new_file->parent = cwd;
-	new_file->child = (ns_node *)0;
+	new_file->child = (ns_node **)0;
 	new_file->how_many_children = 0;
-	cwd->child = (ns_node **)realloc(cwd->child,(++(cwd->how_many_children)) * sizeof(ns_node *));
-	for(i = 0;i < cwd->how_many_children;i++){
-
+	child = (ns_node **)realloc(cwd->child,(++(cwd->how_many_children)) * sizeof(ns_node *));
+	if(child == (ns_node **)0){
+		free(new_file->name);
+		free(new_file);
+		return (ns_node *)0;
 	}
+	cwd->child = child;
+	for(j = cwd->how_many_children - 1;j > i;j--){
+		child[j] = child[j-1];
+	}
+	child[j] = new_file;
+	return new_file;
 }
 int main()
 {
