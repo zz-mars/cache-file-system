@@ -24,7 +24,19 @@
 										  (file_type == REGULAR_FILE)   || \
 										  (file_type == SLINK_FILE))
 /* namespace node 
- * only regular file & dir file & soft link file  supported */
+ * only regular file & dir file & soft link file  supported 
+ * for file_type in REGULAR_FILE & DIRECTORY_FILE & SLINK_FILE
+ * 1) REGULAR_FILE : name is file name
+ *	     			 parent is the pointer to its parent ns_node 
+ *					 child is set to NULL as regular file has no child 
+ *					 how_many_children is set to 0 
+ * 2) DIRECTORY_FILE : name is directory name
+ *					   parent is the pointer to its parent ns_node 
+ *					   child is the pointer to a pointer array,whose elements is the pointer to its child 
+ *					   how_many_children is the number of all its children 
+ * 3) SLINK_FILE : name is full path of the destination file 
+ *				   parent is set to "/shared" 
+ *				   no child */
 typedef struct NS_NODE{
 	u8 * name;                     /* file name */
 	u8 file_type;                  /* is this a directory or a regular file */
