@@ -2,25 +2,52 @@
  * BY grant chen 27,Feb,2013 */
 #include"glob.h"
 #include"errmsg.h"
+/* only 3 kinds of user in cache fs
+ * 1) Root is the super user,system information is stored in /root/ 
+ * 2) Individual users are taken as one kind,every individual user has a home dir under /individuals/ 
+ * 3) All the shared files in cfs can be accessed in dir /shared,
+ *	  Mention that dir /shared never store the real files,just soft links to the shared files.
+ *	  All users can share their files by setting shared flag,so that a soft links to this file will be under /shared .
+ *	  */
+#define USER_ROOT        "root"
+#define USER_INDIVIDUALS "individuals"
+/*
+#define USER_SHARED      "shared"
+*/
+#define INDIVIDUAL_USER  1024    /* individual users */
 #define DIRECTORY_FILE   00
 #define REGULAR_FILE     01
+#define SLINK_FILE		 02
 #define ROOT_DIR_NAME    "/"
-#define FILE_TYPE_VALIDATION(file_type)  ((file_type == DIRECTORY_FILE) || (file_type == REGULAR_FILE))
+#define UPPER_DIR_NAME   ".."
+#define FILE_TYPE_VALIDATION(file_type)  ((file_type == DIRECTORY_FILE) || \
+										  (file_type == REGULAR_FILE)   || \
+										  (file_type == SLINK_FILE))
+/* namespace node 
+ * only regular file & dir file & soft link file  supported */
 typedef struct NS_NODE{
 	u8 * name;                     /* file name */
-	u8 is_directory;               /* is this a directory or a regular file */
+	u8 file_type;                  /* is this a directory or a regular file */
 	struct NS_NODE * parent;	   /* parent */
 	struct NS_NODE ** child;       /* child array */
 	u32 how_many_children;         /* how many children */
 }ns_node;
+/* cache file system user */
+typedef struct CFS_USER{
+	u32 uid;
+	u32 gid;
+	struct CFS_USER * next;
+	struct CFS_USER * pre;
+}cfs_user;
 static ns_node cache_fs_root_dir;
+static current_user
 static ns_node * current_working_dir;
 /* namespace initialization */
-static void init_ns
+static void init_ns()
 {
 	cache_fs_root_dir.name = ROOT_DIR_NAME;
-	cache_fs_root_dir.is_directory = DIRECTORY_FILE;
-	cache_fs_root_dir.parent = (struct NS_NODE *)0;
+	cache_fs_root_dir.file_type = DIRECTORY_FILE;
+	cache_fs_root_dir.parent = &cache_fs_root_dir;/* parent dir for root is itself */
 	cache_fs_root_dir.child = (struct NS_NODE **)0;
 	cache_fs_root_dir.how_many_children = 0;
 	current_working_dir = &cache_fs_root_dir;
@@ -80,18 +107,25 @@ ns_node * get_ns_node(u8 * path)
 		}
 		if(fn_head != NULL && fn_tail != NULL && fn_head <= fn_tail){
 			/* look up file name identified by string from fn_head to fn_tail in lkup_node */
-			if(lkup_node->is_directory != DIRECTORY_FILE){
-				serrmsg("%s NOT A DIRECTORY!",lkup_node->name);
+			if(lkup_node->file_type != DIRECTORY_FILE){
+				serrmsg("NOT A DIRECTORY : %s",lkup_node->name);
 				lkup_node = (ns_node *)0;
 				break;
 			}
 			i = fn_tail - fn_head;
-			strncpy(file_name,fn_head,len);
+			strncpy(file_name,fn_head,i);
 			*(file_name + i) = '\0'; 
+			if(strcmp(file_name,UPPER_DIR_NAME) == 0){
+				/* go to upper dir */
+				lkup_node = lkup_node->parent;
+				fn_head = NULL;
+				fn_tail = NULL;
+				continue;
+			}
 			i = binary_seach_file(file_name,lkup_node->child,0,lkup_node->how_many_children - 1);
 			if(strcmp(file_name,lkup_node->child[i]->name) != 0){
 				/* look up fail */
-				serrmsg("%s NO SUCH FILE OR DIRECTORY UNDER DIRECTORY %s!",file_name,lkup_node->name);
+				serrmsg("%s NO SUCH FILE OR DIRECTORY UNDER DIRECTORY %s",file_name,lkup_node->name);
 				lkup_node = (ns_node *)0;
 				break;
 			}
@@ -105,13 +139,20 @@ ns_node * get_ns_node(u8 * path)
 ns_node * mkfile(ns_node * cwd,u8 * file_name,u8 file_type)
 {
 	/*make a new file under current directory*/
-	u32 j;
 	ns_node ** child = cwd->child;
-	u32 i = binary_seach_file(file_name,child,0,cwd->how_many_children - 1);
-	if((strcmp(file_name,child[i]->name) == 0) || !FILE_TYPE_VALIDATION(file_type)){
-		/* 1) file already exist
-		 * 2) illegal file_type */
-		serrmsg("%s FILE ALREADY EXIST OR ILLEGAL FILE TYPE!",file_name);
+	u32 i,j;
+	if(!FILE_TYPE_VALIDATION(file_type)){
+		serrmsg("ILLEGAL FILE TYPE!");
+		return (ns_node *)0;
+	}
+	if(strcmp(file_name,UPPER_DIR_NAME) == 0){
+		serrmsg("FILE ALREADY EXIST : %s",file_name);
+		return (ns_node *)0;
+	}
+	i = binary_seach_file(file_name,child,0,cwd->how_many_children - 1);
+	if(strcmp(file_name,child[i]->name) == 0){
+		/* file already exist */
+		serrmsg("FILE ALREADY EXIST : %s",file_name);
 		return (ns_node *)0;
 	}/* else new file should be inserted to position i */
 	ns_node * new_file = (ns_node *)calloc(1,sizeof(ns_node));
@@ -127,7 +168,7 @@ ns_node * mkfile(ns_node * cwd,u8 * file_name,u8 file_type)
 		return (ns_node *)0;
 	}
 	strncpy(new_file->name,file_name,file_name_len);
-	new_file->is_directory = file_type;
+	new_file->file_type = file_type;
 	new_file->parent = cwd;
 	new_file->child = (ns_node **)0;
 	new_file->how_many_children = 0;
@@ -150,13 +191,17 @@ u32 rmfile(ns_node * cwd,u8 * file_name)
 	/* remove file "file_name" under directory cwd */
 	ns_node * rmnode;
 	ns_node ** child = cwd->child;
-	u32 j,k;
-	u32 i = binary_seach_file(file_name,0,cwd->how_many_children - 1);
+	u32 i,j,k;
+	if(strcmp(file_name,UPPER_DIR_NAME) == 0){
+		serrmsg("CANNOT DELETE FILE : %s",file_name);
+		return 1;
+	}
+	i = binary_seach_file(file_name,child,0,cwd->how_many_children - 1);
 	rmnode = child[i];
 	if(strcmp(file_name,rmnode->name) != 0){
 		/* file not exist */
-		serrmsg("%s FILE NOT EXIST!",file_name);
-		return 1;
+		serrmsg("FILE NOT EXIST : %s",file_name);
+		return 2;
 	}
 	cwd->child = (ns_node **)calloc(--(cwd->how_many_children),sizeof(ns_node *));
 	for(j = 0,k=0;j < cwd->how_many_children;j++,k++){
@@ -164,13 +209,13 @@ u32 rmfile(ns_node * cwd,u8 * file_name)
 		cwd->child[j] = child[k];
 	}
 	free(child);
-	/*-----------------------------------------------------------*/
-	/**/														/**/
-	/**/														/**/
-	/**/     /* call posix function to remove file here */		/**/
-	/**/														/**/
-	/**/														/**/
-	/*-----------------------------------------------------------*/
+	/*----------------------------------------------------------*/
+	/*															*/
+	/*															*/
+	/*        call posix function to remove file here			*/
+	/*															*/
+	/*															*/
+	/*----------------------------------------------------------*/
 	free(rmnode->name);
 	free(rmnode);
 	return 0;
@@ -182,7 +227,7 @@ u32 changedir(u8 * file_name)
 		perrmsg("get_ns_node");
 		return 1;
 	}
-	if(cd_wd->is_directory != DIRECTORY_FILE){
+	if(cd_wd->file_type != DIRECTORY_FILE){
 		fprintf(stderr,"not a directory!");
 		return 2;
 	}
@@ -198,9 +243,9 @@ u32 lsfile(u8 * file_name)
 		perrmsg("get_ns_node");
 		return 1;
 	}
-	if(ls_file->is_directory == REGULAR_FILE){
+	if(ls_file->file_type == REGULAR_FILE){
 		/* for regular file,just list this file */
-	}else if(ls_file->is_directory == DIRECTORY_FILE){
+	}else if(ls_file->file_type == DIRECTORY_FILE){
 		/* for dir file,list all its children. 
 		 * some options can be provided here,
 		 * such as -r :recursively list file
