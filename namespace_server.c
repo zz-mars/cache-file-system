@@ -19,6 +19,7 @@
 #define HOME_FOR_SU          "su"
 #define HOME_FOR_INDIVIDUALS "individuals"
 #define HOME_FOR_SHARED      "shared"
+#define FULL_PATH_OF_SHARED  "/shared"
 
 #define INDIVIDUAL_USER_NUM  1024    /* individual users */
 #define DIRECTORY_FILE		 00
@@ -40,12 +41,12 @@
  *					   parent is the pointer to its parent ns_node 
  *					   child is the pointer to a pointer array,whose elements is the pointer to its child 
  *					   how_many_children is the number of all its children 
- * 3) SLINK_FILE : name is full path of the destination file. 
+ * 3) SLINK_FILE : "link_to" is the path of the destination file. 
  */
 /*-------------------------------------split------------------------------------*/
 typedef struct NS_NODE{
-	u8 * name;                     /* if file_type is SLINK_FILE,this is the full path of linked file,
-									  else just ordinary file name. */
+	u8 * name;                     /* file name */
+	u8 * link_to;                  /* file linked to,only for slink file */
 	u8 file_type;                  /* REGULAR_FILE || DIRECTORY_FILE || SLINK_FILE */
 	struct NS_NODE * parent;	   /* parent */
 	struct NS_NODE ** child;       /* child array */
@@ -85,25 +86,43 @@ static u32 binary_seach_file(u8 *file_name,ns_node ** child,u32 low,u32 high)
 	return binary_seach_file(file_name,child,low,high);
 }
 /*-------------------------------------split------------------------------------*/
-ns_node * get_ns_node(u8 * path)
+ns_node * get_ns_node(u8 * file_name)
 {
-	/* parse path 
+	/* parse file_name 
 	 * get ns_node */
 	u8 file_name[FILE_PATH_LEN];
 	ns_node * lkup_node;
 	u32 fn_depth = 0,inword = 0;
-	u32 i = strlen(path);
-	u8 * fn_head = NULL,*fn_tail = NULL,*p = path;
-	u8 * tail = path + i;/* tail points to the one character right after the last byte in path */
+	u32 i = strlen(file_name);
+	u8 * fn_head = NULL,*fn_tail = NULL,*p = file_name;
+	u8 * tail = file_name + i;/* tail points to the one character right after the last byte in file_name */
+	/* set the starting node 
+	 * 1) root dir if file_name starts with '/'
+	 * 2) else current working dir */
 	if(*p == '/'){
 		lkup_node = &cfs_root_dir;
 		inword = 0;
 	}else{
 		lkup_node = current_working_dir;
+		fn_head = p;
 		inword = 1;
 		fn_depth++;
 	}
-	for(p = path;p <= tail;p++){
+	for(p = file_name;p <= tail;p++){
+		/* if lkup_node is a slink file,
+		 * redirect lkup_node to the dest ns_node */
+		/*
+		 *
+		 *     code  here to redirect
+		 *
+		 *		tough problem..
+		 *		to be continued..
+		 *		fuck!
+		 */
+		/*
+		if(lkup_node->file_type == SLINK_FILE){
+
+		}*/
 		if(inword == 0 && p < tail && *p != '/'){
 			/* just right enter word */
 			fn_head = p;
@@ -151,9 +170,9 @@ ns_node * get_ns_node(u8 * path)
 /*-------------------------------------split------------------------------------*/
 u8 * get_full_path(ns_node * cwd,u8 * file_name)
 {
-	/* get full path for a given file name under cwd.
-	 * if file_name is full path,just return it,
-	 * else if not,return its full path.*/
+	/* get full path for a given file name under cwd */
+	ns_node * f = get_ns_node(cwd,file_name);
+	u32 full_path_len = strlen(file_name);
 }
 /*-------------------------------------split------------------------------------*/
 ns_node * mkfile(ns_node * cwd,u8 * file_name,u8 file_type)
