@@ -8,12 +8,11 @@
  * 2) Individual users : 
  *			every individual user has a home dir under /individuals/,
  *		    dir name is the user's name.
- * 3) About shared files in cfs :
+ * 3) How to share files in cfs :
  *			All the shared files in cfs can be accessed in dir /shared.
- *			A soft link file whose dest file is dir /shared will be in every individual user's home dir,
- *			so that any individual user can access all the shared files via this soft link file to /shared.
- *	        Mention that dir /shared never store the real files,just soft links to the shared files.
- *		    All users can share their files by getting file's share_flag set,so that a soft links to this file will be under /shared.
+ *			There's a shared dir in every individual user's home dir.
+ *			When users enter their shared dir,the actual action is that cwd is changed to /shared/.
+ *			Special operations are needed to deal with this shared dir.
  *	  */
 #define USER_NUM			 2  /* only two user*/
 #define HOME_FOR_SU          "su"
@@ -28,8 +27,7 @@
 #define ROOT_DIR_NAME		 "/"
 #define UPPER_DIR_NAME		 ".."
 #define IS_LEGAL_FILE_TYPE(file_type)  ((file_type == DIRECTORY_FILE) || \
-				   					    (file_type == REGULAR_FILE)   || \
-								        (file_type == SLINK_FILE))
+				   					    (file_type == REGULAR_FILE))
 /* namespace node 
  * only regular file & dir file & soft link file  supported 
  * for file_type in REGULAR_FILE & DIRECTORY_FILE & SLINK_FILE
@@ -41,17 +39,18 @@
  *					   parent is the pointer to its parent ns_node 
  *					   child is the pointer to a pointer array,whose elements is the pointer to its child 
  *					   how_many_children is the number of all its children 
- * 3) SLINK_FILE : "link_to" is the path of the destination file. 
+ * 3) ATTENTION : for the shared dir in every single user's home dir,its name is "/shared"
+ *				  its file_type is DIRECTORY_FILE
+ *				  its parent is user's home dir
+ *				  no child
  */
 /*-------------------------------------split------------------------------------*/
 typedef struct NS_NODE{
 	u8 * name;                     /* file name */
-	u8 * link_to;                  /* file linked to,only for slink file */
 	u8 file_type;                  /* REGULAR_FILE || DIRECTORY_FILE || SLINK_FILE */
 	struct NS_NODE * parent;	   /* parent */
 	struct NS_NODE ** child;       /* child array */
 	u32 how_many_children;         /* how many children */
-	u32 count;                     /* how many times this file be referenced */
 }ns_node;
 /* cache file system user */
 typedef struct CFS_USER{
@@ -86,18 +85,20 @@ static u32 binary_seach_file(u8 *file_name,ns_node ** child,u32 low,u32 high)
 	return binary_seach_file(file_name,child,low,high);
 }
 /*-------------------------------------split------------------------------------*/
-ns_node * get_ns_node(u8 * file_name)
+ns_node * get_ns_node(u8 * file_path)
 {
-	/* parse file_name 
-	 * get ns_node */
-	u8 file_name[FILE_PATH_LEN];
+	/* get ns_node for a given path
+	 * RETURN VALUE : on success : NOT NULL 
+	 *				  on failure : NULL
+	 */
+	u8 file_name_buf[FILE_PATH_LEN];
 	ns_node * lkup_node;
 	u32 fn_depth = 0,inword = 0;
-	u32 i = strlen(file_name);
-	u8 * fn_head = NULL,*fn_tail = NULL,*p = file_name;
-	u8 * tail = file_name + i;/* tail points to the one character right after the last byte in file_name */
+	u32 i = strlen(file_path);
+	u8 * fn_head = NULL,*fn_tail = NULL,*p = file_path;
+	u8 * tail = file_path + i;/* tail points to the one character right after the last byte in file_path */
 	/* set the starting node 
-	 * 1) root dir if file_name starts with '/'
+	 * 1) root dir if file_path starts with '/'
 	 * 2) else current working dir */
 	if(*p == '/'){
 		lkup_node = &cfs_root_dir;
@@ -108,21 +109,8 @@ ns_node * get_ns_node(u8 * file_name)
 		inword = 1;
 		fn_depth++;
 	}
-	for(p = file_name;p <= tail;p++){
-		/* if lkup_node is a slink file,
-		 * redirect lkup_node to the dest ns_node */
-		/*
-		 *
-		 *     code  here to redirect
-		 *
-		 *		tough problem..
-		 *		to be continued..
-		 *		fuck!
-		 */
-		/*
-		if(lkup_node->file_type == SLINK_FILE){
-
-		}*/
+	for(p = file_path;p <= tail;p++){
+		/* NO SLINK_FILE ALLOWED! */
 		if(inword == 0 && p < tail && *p != '/'){
 			/* just right enter word */
 			fn_head = p;
@@ -136,7 +124,7 @@ ns_node * get_ns_node(u8 * file_name)
 			fn_tail = p;
 			inword = 0;
 		}
-		if(fn_head != NULL && fn_tail != NULL && fn_head <= fn_tail){
+		if(fn_head != NULL && fn_tail != NULL && fn_head < fn_tail){
 			/* look up file name identified by string from fn_head to fn_tail in lkup_node */
 			if(lkup_node->file_type != DIRECTORY_FILE){
 				serrmsg("NOT A DIRECTORY : %s",lkup_node->name);
@@ -144,19 +132,19 @@ ns_node * get_ns_node(u8 * file_name)
 				break;
 			}
 			i = fn_tail - fn_head;
-			strncpy(file_name,fn_head,i);
-			*(file_name + i) = '\0'; 
-			if(strcmp(file_name,UPPER_DIR_NAME) == 0){
+			strncpy(file_name_buf,fn_head,i);
+			*(file_name_buf + i) = '\0'; 
+			if(strcmp(file_name_buf,UPPER_DIR_NAME) == 0){
 				/* go to upper dir */
 				lkup_node = lkup_node->parent;
 				fn_head = NULL;
 				fn_tail = NULL;
 				continue;
 			}
-			i = binary_seach_file(file_name,lkup_node->child,0,lkup_node->how_many_children - 1);
-			if(strcmp(file_name,lkup_node->child[i]->name) != 0){
+			i = binary_seach_file(file_name_buf,lkup_node->child,0,lkup_node->how_many_children - 1);
+			if(strcmp(file_name_buf,lkup_node->child[i]->name) != 0){
 				/* look up fail */
-				serrmsg("%s NO SUCH FILE OR DIRECTORY UNDER DIRECTORY %s",file_name,lkup_node->name);
+				serrmsg("%s NO SUCH FILE OR DIRECTORY UNDER DIRECTORY %s",file_name_buf,lkup_node->name);
 				lkup_node = (ns_node *)0;
 				break;
 			}
@@ -168,83 +156,135 @@ ns_node * get_ns_node(u8 * file_name)
 	return lkup_node;
 }
 /*-------------------------------------split------------------------------------*/
-u8 * get_full_path(ns_node * cwd,u8 * file_name)
+u8 * get_full_path(u8 * file_name)
 {
 	/* get full path for a given file name under cwd */
 	ns_node * f = get_ns_node(cwd,file_name);
 	u32 full_path_len = strlen(file_name);
 }
 /*-------------------------------------split------------------------------------*/
-ns_node * mkfile(ns_node * cwd,u8 * file_name,u8 file_type)
-{ 
-	/* make a new file under directory cwd 
-	 * RETURN VALUE : ns_node * of new file is returned on success,
-	 *				  NULL is returned on failure.  
-	 */
-	ns_node * new_file;
-	u32 file_name_len;
-	ns_node ** child = cwd->child;
-	u32 i,j;
+ns_node * mkfile(u8 * file_path,u8 file_type)
+{
+	/* make a new file */
+	ns_node * new_file = (ns_node *)0;
+	ns_node ** child = (ns_node **)0;
+	u8 file_name_buf[FILE_PATH_LEN];
+	ns_node * lkup_node = (ns_node *)0;
+	u32 fn_depth = 0,inword = 0;
+	u32 i = strlen(file_path),j;
+	u8 * fn_head = NULL,*fn_tail = NULL,*p = file_path;
+	u8 * tail = file_path + i;/* tail points to the one character right after the last byte in file_path */
 	if(!IS_LEGAL_FILE_TYPE(file_type)){
 		serrmsg("ILLEGAL FILE TYPE!");
-		return (ns_node *)0;
+		goto ret;
 	}
-	/* new file cannot be ".." */
-	if(strcmp(file_name,UPPER_DIR_NAME) == 0){
-		serrmsg("FILE ALREADY EXIST : %s",file_name);
-		return (ns_node *)0;
+	/* set the starting node 
+	 * 1) root dir if file_path starts with '/'
+	 * 2) else current working dir */
+	if(*p == '/'){
+		lkup_node = &cfs_root_dir;
+		inword = 0;
+	}else{
+		lkup_node = current_working_dir;
+		fn_head = p;
+		inword = 1;
+		fn_depth++;
 	}
-	i = binary_seach_file(file_name,child,0,cwd->how_many_children - 1);
-	if(strcmp(file_name,child[i]->name) == 0){
-		/* file already exist */
-		serrmsg("FILE ALREADY EXIST : %s",file_name);
-		return (ns_node *)0;
-	}/* else new file should be inserted to position i */
+	bzero(file_name_buf,FILE_PATH_LEN);
+	for(p = file_path;p <= tail;p++){
+		if(inword == 0 && p < tail && *p != '/'){
+			/* just right enter word */
+			fn_head = p;
+			inword = 1;
+			fn_depth++;
+		}
+		/* just right leave word */
+		if(inword == 1 && (*p == '/' || p == tail)){
+			/* when p == tail,POINTER p cannot be used to reference any data,
+			 * just the position of a file name 's tail */
+			fn_tail = p;
+			inword = 0;
+		}
+		if(fn_head != NULL && fn_tail != NULL && fn_head < fn_tail){
+			if(lkup_node == (ns_node *)0 || lkup_node->file_type != DIRECTORY_FILE){
+				serrmsg("EDIRECTORY");
+				goto ret;
+			}
+			bzero(file_name_buf,FILE_PATH_LEN);
+			i = fn_tail - fn_head;
+			strncpy(file_name_buf,fn_head,i);
+			if(strcmp(file_name_buf,UPPER_DIR_NAME) == 0){
+				if(fn_tail == tail){
+					serrmsg("FILE ALREADY EXISTS!");
+					goto ret;
+				}
+				/* go to upper dir */
+				lkup_node = lkup_node->parent;
+				fn_head = NULL;
+				fn_tail = NULL;
+				continue;
+			}
+			i = binary_seach_file(file_name_buf,lkup_node->child,0,lkup_node->how_many_children - 1);
+			if((j = strcmp(file_name_buf,lkup_node->child[i]->name)) != 0){
+				/* look up fail */
+				if(fn_tail == tail){
+					/* ok! file_name_buf is the file to be created.
+					 * lkup_node is its parent node. 
+					 * i is the position,this new file node should be inserted to. */
+					break;
+				}
+				serrmsg("%s NO SUCH FILE OR DIRECTORY UNDER DIRECTORY %s",file_name_buf,lkup_node->name);
+				goto ret;
+			}
+			if(fn_tail == tail){
+				serrmsg("FILE ALREADY EXISTS!");
+				goto ret;
+			}
+			lkup_node = lkup_node->child[i];
+			fn_head = NULL;
+			fn_tail = NULL;
+		}
+	}
+	/* now make a new file "file_name_buf" at dir "lkup_node" */
+	if(strlen(file_name_buf) == 0 || lkup_node == (ns_node *)0){
+		/* some error happened */
+		serrmsg("NEW FILE_NAME OR ITS PARENT NODE INVLAID!");
+		goto ret;
+	}
+	child = lkup_node->child;
 	new_file = (ns_node *)calloc(1,sizeof(ns_node));
 	if(new_file == (ns_node *)0){
 		serrmsg("CALLOC FAIL!");
-		return new_file;
+		goto ret;
 	}
-	file_name_len = strlen(file_name);
-	new_file->name = calloc(1,file_name_len + 1);
+	j = strlen(file_name_buf);
+	new_file->name = calloc(1,j + 1);
 	if(new_file->name == NULL){
 		free(new_file);
 		serrmsg("CALLOC FAIL!");
-		return (ns_node *)0;
+		new_file = (ns_node *)0;
+		goto ret;
 	}
-	strncpy(new_file->name,file_name,file_name_len);
+	strncpy(new_file->name,file_name_buf,j);
 	new_file->file_type = file_type;
-	new_file->parent = cwd;
+	new_file->parent = lkup_node;
 	new_file->child = (ns_node **)0;
 	new_file->how_many_children = 0;
-	new_file->count = 0;
-	child = (ns_node **)realloc(cwd->child,(++(cwd->how_many_children)) * sizeof(ns_node *));
+	child = (ns_node **)realloc(lkup_node->child,(++(lkup_node->how_many_children)) * sizeof(ns_node *));
 	if(child == (ns_node **)0){
 		free(new_file->name);
 		free(new_file);
 		serrmsg("REALLOC FAIL!");
-		return (ns_node *)0;
+		new_file = (ns_node *)0;
+		goto ret;
 	}
 	cwd->child = child;
-	for(j = cwd->how_many_children - 1;j > i;j--){
+	for(j = lkup_node->how_many_children - 1;j > i;j--){
 		child[j] = child[j-1];
 	}
 	child[j] = new_file;
+ret:
 	return new_file;
-}
-/*-------------------------------------split------------------------------------*/
-ns_node * mkslnfile(ns_node * cwd,u8 * link_to)
-{
-	/* Make a new soft link file under dir cwd.
-	 * Dest file is identified by name "link_to".
-	 * Name of new link file would be the full path of file "link_to". 
-	 * RETURN VALUE : ns_node * of new soft link file is returned on success,
-	 *				  NULL is returned on failure */
-	u8 * new_link_file_name = get_full_path(cwd,link_to);
-	ns_node * new_link_file = mkfile(cwd,new_link_file_name,SLINK_FILE);
-	ns_node * link_file = get_ns_node(link_to);
-	link_file->count++;
-	return new_link_file;
 }
 /*-------------------------------------split------------------------------------*/
 u32 rmfile(ns_node * cwd,u8 * file_name)
@@ -282,7 +322,7 @@ u32 rmfile(ns_node * cwd,u8 * file_name)
 	return 0;
 }
 /*-------------------------------------split------------------------------------*/
-u32 changedir(u8 * file_name)
+u32 cd(u8 * file_name)
 {
 	ns_node * cd_wd = get_ns_node(file_name);
 	if(cd_wd == (ns_node *)0){
@@ -297,7 +337,7 @@ u32 changedir(u8 * file_name)
 	return 0;
 }
 /*-------------------------------------split------------------------------------*/
-u32 lsfile(u8 * file_name)
+u32 ls(u8 * file_name)
 {
 	/* the return value can be ns_node* arrary
 	 * or something else */
