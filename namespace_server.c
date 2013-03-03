@@ -85,13 +85,17 @@ static u32 binary_seach_file(u8 *file_name,ns_node ** child,u32 low,u32 high)
 	return binary_seach_file(file_name,child,low,high);
 }
 /*-------------------------------------split------------------------------------*/
-ns_node * get_ns_node(u8 * file_path)
+u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,fbufsiz)
 {
-	/* get ns_node for a given path
-	 * RETURN VALUE : on success : NOT NULL 
-	 *				  on failure : NULL
+	/* get ns_node for a given path.
+	 * *index is the file's position in the last lookup,no matter this look up succeeds or fails.
+	 * RETURN TABLE :
+	 *						return_value	*nsnode		file_name_buf
+	 * success					0			not_null	 empty
+	 * lkup_node not a dir :	1			not_null	 not_empty
+	 * no such file or dir :	2			not_null	 not_empty
 	 */
-	u8 file_name_buf[FILE_PATH_LEN];
+	u32 ret = 0;
 	ns_node * lkup_node;
 	u32 fn_depth = 0,inword = 0;
 	u32 i = strlen(file_path);
@@ -109,6 +113,7 @@ ns_node * get_ns_node(u8 * file_path)
 		inword = 1;
 		fn_depth++;
 	}
+	bzero(file_name_buf,fbufsiz);
 	for(p = file_path;p <= tail;p++){
 		/* NO SLINK_FILE ALLOWED! */
 		if(inword == 0 && p < tail && *p != '/'){
@@ -128,32 +133,36 @@ ns_node * get_ns_node(u8 * file_path)
 			/* look up file name identified by string from fn_head to fn_tail in lkup_node */
 			if(lkup_node->file_type != DIRECTORY_FILE){
 				serrmsg("NOT A DIRECTORY : %s",lkup_node->name);
-				lkup_node = (ns_node *)0;
-				break;
+				ret = 1;
+				goto op_over;
 			}
 			i = fn_tail - fn_head;
 			strncpy(file_name_buf,fn_head,i);
-			*(file_name_buf + i) = '\0'; 
 			if(strcmp(file_name_buf,UPPER_DIR_NAME) == 0){
 				/* go to upper dir */
 				lkup_node = lkup_node->parent;
+				bzero(file_name_buf,fbufsiz);
 				fn_head = NULL;
 				fn_tail = NULL;
 				continue;
 			}
 			i = binary_seach_file(file_name_buf,lkup_node->child,0,lkup_node->how_many_children - 1);
+			*index = i;
 			if(strcmp(file_name_buf,lkup_node->child[i]->name) != 0){
 				/* look up fail */
 				serrmsg("%s NO SUCH FILE OR DIRECTORY UNDER DIRECTORY %s",file_name_buf,lkup_node->name);
-				lkup_node = (ns_node *)0;
-				break;
+				ret = 2;
+				goto op_over;
 			}
 			lkup_node = lkup_node->child[i];
+			bzero(file_name_buf,fbufsiz);
 			fn_head = NULL;
 			fn_tail = NULL;
 		}
 	}
-	return lkup_node;
+op_over:
+	*nsnode = lkup_node;
+	return ret;
 }
 /*-------------------------------------split------------------------------------*/
 u8 * get_full_path(u8 * file_name)
@@ -161,6 +170,16 @@ u8 * get_full_path(u8 * file_name)
 	/* get full path for a given file name under cwd */
 	ns_node * f = get_ns_node(cwd,file_name);
 	u32 full_path_len = strlen(file_name);
+}
+/*-------------------------------------split------------------------------------*/
+ns_node * mkfile(u8 * file_path,u8 file_type)
+{
+	/* make a new file */
+	ns_node ** nsnode;
+	ns_node * new_file;
+	ns_node ** child;
+	u8 file_name_buf[FILE_PATH_LEN];
+	bzero(file_name_buf,FILE_PATH_LEN);
 }
 /*-------------------------------------split------------------------------------*/
 ns_node * mkfile(u8 * file_path,u8 file_type)
