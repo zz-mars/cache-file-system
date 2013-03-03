@@ -85,15 +85,23 @@ static u32 binary_seach_file(u8 *file_name,ns_node ** child,u32 low,u32 high)
 	return binary_seach_file(file_name,child,low,high);
 }
 /*-------------------------------------split------------------------------------*/
+u8 * get_full_path(u8 * file_name)
+{
+	/* get full path for a given file name under cwd */
+	ns_node * f = get_ns_node(cwd,file_name);
+	u32 full_path_len = strlen(file_name);
+}
+/*-------------------------------------split------------------------------------*/
 u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,fbufsiz)
 {
 	/* get ns_node for a given path.
 	 * *index is the file's position in the last lookup,no matter this look up succeeds or fails.
 	 * RETURN TABLE :
-	 *						return_value	*nsnode		file_name_buf
-	 * success					0			not_null	 empty
-	 * lkup_node not a dir :	1			not_null	 not_empty
-	 * no such file or dir :	2			not_null	 not_empty
+	 *						return_value	*nsnode		file_name_buf	description
+	 * success					0			not_null	 empty			everything is ok
+	 * lkup_node not a dir :	1			not_null	 empty			not a dir
+	 * no such file or dir :	2			not_null	 not_empty		file not exist
+	 * no such file or dir :	3			not_null	 not_empty		inter_dir not exist
 	 */
 	u32 ret = 0;
 	ns_node * lkup_node;
@@ -141,6 +149,7 @@ u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,
 			if(strcmp(file_name_buf,UPPER_DIR_NAME) == 0){
 				/* go to upper dir */
 				lkup_node = lkup_node->parent;
+				/* reset file name */
 				bzero(file_name_buf,fbufsiz);
 				fn_head = NULL;
 				fn_tail = NULL;
@@ -151,10 +160,12 @@ u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,
 			if(strcmp(file_name_buf,lkup_node->child[i]->name) != 0){
 				/* look up fail */
 				serrmsg("%s NO SUCH FILE OR DIRECTORY UNDER DIRECTORY %s",file_name_buf,lkup_node->name);
-				ret = 2;
+				ret = (fn_tail == tail ? 2 : 3);
 				goto op_over;
 			}
+			/* go to next dir */
 			lkup_node = lkup_node->child[i];
+			/* reset file name */
 			bzero(file_name_buf,fbufsiz);
 			fn_head = NULL;
 			fn_tail = NULL;
@@ -165,151 +176,87 @@ op_over:
 	return ret;
 }
 /*-------------------------------------split------------------------------------*/
-u8 * get_full_path(u8 * file_name)
-{
-	/* get full path for a given file name under cwd */
-	ns_node * f = get_ns_node(cwd,file_name);
-	u32 full_path_len = strlen(file_name);
-}
-/*-------------------------------------split------------------------------------*/
 ns_node * mkfile(u8 * file_path,u8 file_type)
 {
 	/* make a new file */
-	ns_node ** nsnode;
-	ns_node * new_file;
+	u32 index;
+	u32 r;
+	ns_node * nsnode;
+	ns_node * new_file = (ns_node *)0;
 	ns_node ** child;
 	u8 file_name_buf[FILE_PATH_LEN];
-	bzero(file_name_buf,FILE_PATH_LEN);
-}
-/*-------------------------------------split------------------------------------*/
-ns_node * mkfile(u8 * file_path,u8 file_type)
-{
-	/* make a new file */
-	ns_node * new_file = (ns_node *)0;
-	ns_node ** child = (ns_node **)0;
-	u8 file_name_buf[FILE_PATH_LEN];
-	ns_node * lkup_node = (ns_node *)0;
-	u32 fn_depth = 0,inword = 0;
-	u32 i = strlen(file_path),j;
-	u8 * fn_head = NULL,*fn_tail = NULL,*p = file_path;
-	u8 * tail = file_path + i;/* tail points to the one character right after the last byte in file_path */
 	if(!IS_LEGAL_FILE_TYPE(file_type)){
 		serrmsg("ILLEGAL FILE TYPE!");
 		goto ret;
 	}
-	/* set the starting node 
-	 * 1) root dir if file_path starts with '/'
-	 * 2) else current working dir */
-	if(*p == '/'){
-		lkup_node = &cfs_root_dir;
-		inword = 0;
-	}else{
-		lkup_node = current_working_dir;
-		fn_head = p;
-		inword = 1;
-		fn_depth++;
-	}
 	bzero(file_name_buf,FILE_PATH_LEN);
-	for(p = file_path;p <= tail;p++){
-		if(inword == 0 && p < tail && *p != '/'){
-			/* just right enter word */
-			fn_head = p;
-			inword = 1;
-			fn_depth++;
-		}
-		/* just right leave word */
-		if(inword == 1 && (*p == '/' || p == tail)){
-			/* when p == tail,POINTER p cannot be used to reference any data,
-			 * just the position of a file name 's tail */
-			fn_tail = p;
-			inword = 0;
-		}
-		if(fn_head != NULL && fn_tail != NULL && fn_head < fn_tail){
-			if(lkup_node == (ns_node *)0 || lkup_node->file_type != DIRECTORY_FILE){
-				serrmsg("EDIRECTORY");
+	r = get_ns_node(file_path,&nsnode,&index,file_name_buf,FILE_PATH_LEN);
+	switch(r){
+		case 0:
+			/* get_ns_node ok! file already exists! */
+			break;
+		case 1:
+			/* error situation,lkup_node not a dir */
+			break;
+		case 2:
+			/* ready to make a new file! */
+			if(strlen(file_name_buf) == 0 || nsnode == (ns_node *)0){
+				/* some error happened */
+				serrmsg("NEW FILE_NAME OR ITS PARENT NODE INVLAID!");
 				goto ret;
 			}
-			bzero(file_name_buf,FILE_PATH_LEN);
-			i = fn_tail - fn_head;
-			strncpy(file_name_buf,fn_head,i);
-			if(strcmp(file_name_buf,UPPER_DIR_NAME) == 0){
-				if(fn_tail == tail){
-					serrmsg("FILE ALREADY EXISTS!");
-					goto ret;
-				}
-				/* go to upper dir */
-				lkup_node = lkup_node->parent;
-				fn_head = NULL;
-				fn_tail = NULL;
-				continue;
-			}
-			i = binary_seach_file(file_name_buf,lkup_node->child,0,lkup_node->how_many_children - 1);
-			if((j = strcmp(file_name_buf,lkup_node->child[i]->name)) != 0){
-				/* look up fail */
-				if(fn_tail == tail){
-					/* ok! file_name_buf is the file to be created.
-					 * lkup_node is its parent node. 
-					 * i is the position,this new file node should be inserted to. */
-					break;
-				}
-				serrmsg("%s NO SUCH FILE OR DIRECTORY UNDER DIRECTORY %s",file_name_buf,lkup_node->name);
+			child = nsnode->child;
+			new_file = (ns_node *)calloc(1,sizeof(ns_node));
+			if(new_file == (ns_node *)0){
+				serrmsg("CALLOC FAIL!");
 				goto ret;
 			}
-			if(fn_tail == tail){
-				serrmsg("FILE ALREADY EXISTS!");
+			j = strlen(file_name_buf);
+			new_file->name = calloc(1,j + 1);
+			if(new_file->name == NULL){
+				free(new_file);
+				serrmsg("CALLOC FAIL!");
+				new_file = (ns_node *)0;
 				goto ret;
 			}
-			lkup_node = lkup_node->child[i];
-			fn_head = NULL;
-			fn_tail = NULL;
-		}
+			strncpy(new_file->name,file_name_buf,j);
+			new_file->file_type = file_type;
+			new_file->parent = nsnode;
+			new_file->child = (ns_node **)0;
+			new_file->how_many_children = 0;
+			child = (ns_node **)realloc(nsnode->child,(++(nsnode->how_many_children)) * sizeof(ns_node *));
+			if(child == (ns_node **)0){
+				free(new_file->name);
+				free(new_file);
+				serrmsg("REALLOC FAIL!");
+				new_file = (ns_node *)0;
+				goto ret;
+			}
+			cwd->child = child;
+			for(j = nsnode->how_many_children - 1;j > i;j--){
+				child[j] = child[j-1];
+			}
+			child[j] = new_file;
+			break;
+		case 3:
+			/* error situation,some inter_dir not exists! */
+			break;
+		default:
+			/* unrecognized return value from get_ns_node */
+			break;
 	}
-	/* now make a new file "file_name_buf" at dir "lkup_node" */
-	if(strlen(file_name_buf) == 0 || lkup_node == (ns_node *)0){
-		/* some error happened */
-		serrmsg("NEW FILE_NAME OR ITS PARENT NODE INVLAID!");
-		goto ret;
-	}
-	child = lkup_node->child;
-	new_file = (ns_node *)calloc(1,sizeof(ns_node));
-	if(new_file == (ns_node *)0){
-		serrmsg("CALLOC FAIL!");
-		goto ret;
-	}
-	j = strlen(file_name_buf);
-	new_file->name = calloc(1,j + 1);
-	if(new_file->name == NULL){
-		free(new_file);
-		serrmsg("CALLOC FAIL!");
-		new_file = (ns_node *)0;
-		goto ret;
-	}
-	strncpy(new_file->name,file_name_buf,j);
-	new_file->file_type = file_type;
-	new_file->parent = lkup_node;
-	new_file->child = (ns_node **)0;
-	new_file->how_many_children = 0;
-	child = (ns_node **)realloc(lkup_node->child,(++(lkup_node->how_many_children)) * sizeof(ns_node *));
-	if(child == (ns_node **)0){
-		free(new_file->name);
-		free(new_file);
-		serrmsg("REALLOC FAIL!");
-		new_file = (ns_node *)0;
-		goto ret;
-	}
-	cwd->child = child;
-	for(j = lkup_node->how_many_children - 1;j > i;j--){
-		child[j] = child[j-1];
-	}
-	child[j] = new_file;
 ret:
 	return new_file;
 }
 /*-------------------------------------split------------------------------------*/
-u32 rmfile(ns_node * cwd,u8 * file_name)
+u32 rmfile(u8 * file_path)
 {
-	/* remove file "file_name" under directory cwd */
+	/* remove file "file_path" */
 	ns_node * rmnode;
+	u32 i;
+	u8 file_name_buf[FILE_PATH_LEN];
+	bzero(file_name_buf,FILE_PATH_LEN);
+	i = get_ns_node(file_path,&rmnode,&i,file_name_buf,FILE_PATH_LEN);
 	ns_node ** child = cwd->child;
 	u32 i,j,k;
 	if(strcmp(file_name,UPPER_DIR_NAME) == 0){
