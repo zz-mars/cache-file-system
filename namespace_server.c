@@ -15,9 +15,9 @@
  *			Special operations are needed to deal with this shared dir.
  *	  */
 #define USER_NUM			 2  /* only two user*/
-#define HOME_FOR_SU          "su"
-#define HOME_FOR_INDIVIDUALS "individuals"
-#define HOME_FOR_SHARED      "shared"
+#define HOME_FOR_SU          "/su"
+#define HOME_FOR_INDIVIDUALS "/individuals"
+#define HOME_FOR_SHARED      "/shared"
 
 #define INDIVIDUAL_USER_NUM  1024    /* individual users */
 /* file type definition */
@@ -29,9 +29,35 @@
 #define HOME_DIR_NAME		 "~"
 #define ROOT_DIR_NAME		 "/"
 #define UPPER_DIR_NAME		 ".."
-#define SHARED_DIR_NAME	     "/shared"
+#define SHARED_DIR_NAME	     "shared"
 #define IS_LEGAL_FILE_TYPE(file_type)  ((file_type == DIRECTORY_FILE) || \
 				   					    (file_type == REGULAR_FILE))
+/* user's information is saved in a file */
+#define USER_INFO_FILE		"user_info.txt"
+/* user's infor format 
+ * uid + gid + home_dir + user_name + password */
+/* for super user UID : 0
+ *				  GID : 0
+ *				  HDIR: /su
+ *				  UN  : su
+ *				  PW  : 123
+ *				  */
+#define SU_UID				00
+#define SU_GID				00
+#define SU_NAME				"su"
+#define SU_INIT_PW			"123"
+#define USER_INFO_FMT		"%d %d \/individuals\/%s %s %s\n"
+#define GET_LEAST_AVAILABLE_UID   "./get_least_available_uid.sh"
+/* access control list */
+#define UREAD				0400
+#define UWRIT				0200
+#define UEXEC				0100
+#define GREAD				0040
+#define GWRIT				0020
+#define GEXEC				0010
+#define OREAD				0004
+#define OWRIT				0002
+#define OEXEC				0001
 /* namespace node 
  * only regular file & dir file & soft link file  supported 
  * for file_type in REGULAR_FILE & DIRECTORY_FILE & SLINK_FILE
@@ -52,6 +78,9 @@
 typedef struct NS_NODE{
 	u8 * name;                     /* file name */
 	u8 file_type;                  /* REGULAR_FILE || DIRECTORY_FILE || SLINK_FILE */
+	u32 uid;
+	u32 gid;
+	u32 acl;					   /* access control list */
 	struct NS_NODE * parent;	   /* parent */
 	struct NS_NODE ** child;       /* child array */
 	u32 how_many_children;         /* how many children */
@@ -60,11 +89,15 @@ typedef struct NS_NODE{
 typedef struct CFS_USER{
 	u32 uid;
 	u32 gid;
+	struct CFS_USER * pre;
+	struct CFS_USER * next;
 }cfs_user;
 /* namespace system stat information definition */
-static cfs_user all_user[2]; /* root & individuals */
-static ns_node cfs_root_dir; /* ns_node of root dir*/
+static cfs_user super_user;
+static cfs_user * active_user_list = (cfs_user *)0; /* all active user in cfs are in a list */
 static cfs_user * current_user;  /* current user */
+
+static ns_node cfs_root_dir; /* ns_node of root dir*/
 static ns_node * current_working_dir; /* current working dir */
 static ns_node * shared_dir;    /* shared dir */
 
@@ -189,7 +222,7 @@ op_over:
 	return ret;
 }
 /*-------------------------------------split------------------------------------*/
-ns_node * mkfile(u8 * file_path,u8 file_type)
+ns_node * mkfile(u8 * file_path,u8 file_type,u32 acl)
 {
 	/* make a new file */
 	u32 index;
@@ -227,6 +260,9 @@ ns_node * mkfile(u8 * file_path,u8 file_type)
 		}
 		strncpy(new_file->name,file_name_buf,j);
 		new_file->file_type = file_type;
+		new_file->uid = current_user->uid;
+		new_file->gid = current_user->gid;
+		new_file->acl = acl;
 		new_file->parent = nsnode;
 		new_file->child = (ns_node **)0;
 		new_file->how_many_children = 0;
@@ -322,11 +358,29 @@ u32 ls(u8 * file_path)
 	return ret;
 }
 /*-------------------------------------split------------------------------------*/
-ns_node * adduser(u8 * user_name)
+u32 adduser(u8 * user_name,u8 * pw)
 {
 	/* add a new individual user in cfs 
-	 * 1) make a home dir for new user under /individuals 
-	 * 2) make a soft link file linked to /shared for this user */
+	 * 1) get a uid 
+	 * 2) make home dir 
+	 * 3) update user_info.txt */
+	FILE *fp;
+	u32 uid,gid,i = 0;
+	u8 buf[BUFSIZ];
+	bzero(buf,BUFSIZ);
+	if((fp = popen(GET_LEAST_AVAILABLE_UID,"r")) == NULL){
+		fprintf(stderr,"popen fail!\n");
+		return 1;
+	}
+	while(fgets(buf + i,BUFSIZ - i,fp) != NULL){i = strlen(buf);}
+	pclose(fp);
+	uid = atoi_u32(buf);
+	gid = uid;
+	bzero(buf,BUFSIZ);
+	snprintf(buf,BUFSIZ,USER_INFO_FMT,uid,gid,user_name,user_name,pw);
+	/* write to file */
+	return 0;
+
 }
 /*-------------------------------------split------------------------------------*/
 /* namespace initialization */
@@ -338,11 +392,19 @@ static void init_ns()
 	 * 3) /individuals/
 	 * 4) /shared/ 
 	 * */
+	/* root dir */
 	cfs_root_dir.name = ROOT_DIR_NAME;
 	cfs_root_dir.file_type = DIRECTORY_FILE;
 	cfs_root_dir.parent = &cfs_root_dir;/* parent dir for root is itself */
 	cfs_root_dir.child = (struct NS_NODE **)0;
 	cfs_root_dir.how_many_children = 0;
+	/* super user */
+	super_user.uid = SU_UID;
+	super_user.gid = SU_GID;
+	/* super user's information write to file */
+	mkfile(HOME_FOR_SU,DIRECTORY_FILE,0777);
+	mkfile(HOME_FOR_INDIVIDUALS,DIRECTORY_FILE,0777);
+	mkfile(HOME_FOR_SHARED,DIRECTORY_FILE,0777);
 	/* cwd set when user login */
 /*	current_working_dir = &cfs_root_dir; */
 	if(mkfile(&cfs_root_dir,HOME_FOR_SU,DIRECTORY_FILE) == (ns_node *)0){
