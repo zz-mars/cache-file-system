@@ -18,14 +18,18 @@
 #define HOME_FOR_SU          "su"
 #define HOME_FOR_INDIVIDUALS "individuals"
 #define HOME_FOR_SHARED      "shared"
-#define FULL_PATH_OF_SHARED  "/shared"
 
 #define INDIVIDUAL_USER_NUM  1024    /* individual users */
+/* file type definition */
 #define DIRECTORY_FILE		 00
 #define REGULAR_FILE		 01
-#define SLINK_FILE			 02
+/* specail file type for file_sharing */
+#define SHARED_DIR_FILE		 02
+
+#define HOME_DIR_NAME		 "~"
 #define ROOT_DIR_NAME		 "/"
 #define UPPER_DIR_NAME		 ".."
+#define SHARED_DIR_NAME	     "/shared"
 #define IS_LEGAL_FILE_TYPE(file_type)  ((file_type == DIRECTORY_FILE) || \
 				   					    (file_type == REGULAR_FILE))
 /* namespace node 
@@ -62,6 +66,7 @@ static cfs_user all_user[2]; /* root & individuals */
 static ns_node cfs_root_dir; /* ns_node of root dir*/
 static cfs_user * current_user;  /* current user */
 static ns_node * current_working_dir; /* current working dir */
+static ns_node * shared_dir;    /* shared dir */
 
 /*-------------------------------------split------------------------------------*/
 static u32 binary_seach_file(u8 *file_name,ns_node ** child,u32 low,u32 high)
@@ -97,11 +102,14 @@ u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,
 	/* get ns_node for a given path.
 	 * *index is the file's position in the last lookup,no matter this look up succeeds or fails.
 	 * RETURN TABLE :
-	 *						return_value	*nsnode		file_name_buf	description
-	 * success					0			not_null	 empty			everything is ok
-	 * lkup_node not a dir :	1			not_null	 empty			not a dir
-	 * no such file or dir :	2			not_null	 not_empty		file not exist
-	 * no such file or dir :	3			not_null	 not_empty		inter_dir not exist
+	 *						return_value	file_name_buf		*nsnode
+	 * success					0			 empty				ns_node ptr of the right file
+	 * lkup_node not a dir :	1			 empty				the ptr of ns_node that leads to error (not a dir)
+	 * is upper dir file   :    2			 UPPER_DIR_NAME 	the ptr of the parent ns_node
+	 * no such file or dir :	3			 file name			ptr of final dir in this file_path
+	 * no such file or dir :	4			 inter_dir name		ptr of the last dir when "no such file or dir" happens
+	 * ATTENTION : index only makes sense when return value is 0 : used to delete a file
+	 *														   3 : used to make a new file 
 	 */
 	u32 ret = 0;
 	ns_node * lkup_node;
@@ -149,6 +157,11 @@ u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,
 			if(strcmp(file_name_buf,UPPER_DIR_NAME) == 0){
 				/* go to upper dir */
 				lkup_node = lkup_node->parent;
+				if(fn_tail == tail){
+					/* the file is a upper_dir file */
+					ret = 2;
+					goto op_over;
+				}
 				/* reset file name */
 				bzero(file_name_buf,fbufsiz);
 				fn_head = NULL;
@@ -156,11 +169,10 @@ u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,
 				continue;
 			}
 			i = binary_seach_file(file_name_buf,lkup_node->child,0,lkup_node->how_many_children - 1);
-			*index = i;
 			if(strcmp(file_name_buf,lkup_node->child[i]->name) != 0){
 				/* look up fail */
 				serrmsg("%s NO SUCH FILE OR DIRECTORY UNDER DIRECTORY %s",file_name_buf,lkup_node->name);
-				ret = (fn_tail == tail ? 2 : 3);
+				ret = (fn_tail == tail ? 3 : 4);
 				goto op_over;
 			}
 			/* go to next dir */
@@ -172,6 +184,7 @@ u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,
 		}
 	}
 op_over:
+	*index = i;
 	*nsnode = lkup_node;
 	return ret;
 }
@@ -191,59 +204,45 @@ ns_node * mkfile(u8 * file_path,u8 file_type)
 	}
 	bzero(file_name_buf,FILE_PATH_LEN);
 	r = get_ns_node(file_path,&nsnode,&index,file_name_buf,FILE_PATH_LEN);
-	switch(r){
-		case 0:
-			/* get_ns_node ok! file already exists! */
-			break;
-		case 1:
-			/* error situation,lkup_node not a dir */
-			break;
-		case 2:
-			/* ready to make a new file! */
-			if(strlen(file_name_buf) == 0 || nsnode == (ns_node *)0){
-				/* some error happened */
-				serrmsg("NEW FILE_NAME OR ITS PARENT NODE INVLAID!");
-				goto ret;
-			}
-			child = nsnode->child;
-			new_file = (ns_node *)calloc(1,sizeof(ns_node));
-			if(new_file == (ns_node *)0){
-				serrmsg("CALLOC FAIL!");
-				goto ret;
-			}
-			j = strlen(file_name_buf);
-			new_file->name = calloc(1,j + 1);
-			if(new_file->name == NULL){
-				free(new_file);
-				serrmsg("CALLOC FAIL!");
-				new_file = (ns_node *)0;
-				goto ret;
-			}
-			strncpy(new_file->name,file_name_buf,j);
-			new_file->file_type = file_type;
-			new_file->parent = nsnode;
-			new_file->child = (ns_node **)0;
-			new_file->how_many_children = 0;
-			child = (ns_node **)realloc(nsnode->child,(++(nsnode->how_many_children)) * sizeof(ns_node *));
-			if(child == (ns_node **)0){
-				free(new_file->name);
-				free(new_file);
-				serrmsg("REALLOC FAIL!");
-				new_file = (ns_node *)0;
-				goto ret;
-			}
-			cwd->child = child;
-			for(j = nsnode->how_many_children - 1;j > i;j--){
-				child[j] = child[j-1];
-			}
-			child[j] = new_file;
-			break;
-		case 3:
-			/* error situation,some inter_dir not exists! */
-			break;
-		default:
-			/* unrecognized return value from get_ns_node */
-			break;
+	if(r == 3){
+		/* ready to make a new file! */
+		if(strlen(file_name_buf) == 0 || nsnode == (ns_node *)0){
+			/* some error happened */
+			serrmsg("NEW FILE_NAME OR ITS PARENT NODE INVLAID!");
+			goto ret;
+		}
+		child = nsnode->child;
+		new_file = (ns_node *)calloc(1,sizeof(ns_node));
+		if(new_file == (ns_node *)0){
+			serrmsg("CALLOC FAIL!");
+			goto ret;
+		}
+		j = strlen(file_name_buf);
+		new_file->name = calloc(1,j + 1);
+		if(new_file->name == NULL){
+			free(new_file);
+			serrmsg("CALLOC FAIL!");
+			new_file = (ns_node *)0;
+			goto ret;
+		}
+		strncpy(new_file->name,file_name_buf,j);
+		new_file->file_type = file_type;
+		new_file->parent = nsnode;
+		new_file->child = (ns_node **)0;
+		new_file->how_many_children = 0;
+		child = (ns_node **)realloc(nsnode->child,(++(nsnode->how_many_children)) * sizeof(ns_node *));
+		if(child == (ns_node **)0){
+			free(new_file->name);
+			free(new_file);
+			serrmsg("REALLOC FAIL!");
+			new_file = (ns_node *)0;
+			goto ret;
+		}
+		cwd->child = child;
+		for(j = nsnode->how_many_children - 1;j > i;j--){
+			child[j] = child[j-1];
+		}
+		child[j] = new_file;
 	}
 ret:
 	return new_file;
@@ -252,77 +251,75 @@ ret:
 u32 rmfile(u8 * file_path)
 {
 	/* remove file "file_path" */
-	ns_node * rmnode;
-	u32 i;
+	ns_node * rmnode,*parent_dir;
+	ns_node ** child;
+	u32 i,j,k,r;
 	u8 file_name_buf[FILE_PATH_LEN];
 	bzero(file_name_buf,FILE_PATH_LEN);
-	i = get_ns_node(file_path,&rmnode,&i,file_name_buf,FILE_PATH_LEN);
-	ns_node ** child = cwd->child;
-	u32 i,j,k;
-	if(strcmp(file_name,UPPER_DIR_NAME) == 0){
-		serrmsg("CANNOT DELETE FILE : %s",file_name);
-		return 1;
-	}
-	i = binary_seach_file(file_name,child,0,cwd->how_many_children - 1);
-	rmnode = child[i];
-	if(strcmp(file_name,rmnode->name) != 0){
-		/* file not exist */
-		serrmsg("FILE NOT EXIST : %s",file_name);
-		return 2;
-	}
-	cwd->child = (ns_node **)calloc(--(cwd->how_many_children),sizeof(ns_node *));
-	for(j = 0,k=0;j < cwd->how_many_children;j++,k++){
-		if(k == i){k++;}
-		cwd->child[j] = child[k];
-	}
-	free(child);
-	/*----------------------------------------------------------*/
-	/*															*/
-	/*															*/
-	/*        call posix function to remove file here			*/
-	/*															*/
-	/*															*/
-	/*----------------------------------------------------------*/
-	free(rmnode->name);
-	free(rmnode);
+	r = get_ns_node(file_path,&rmnode,&i,file_name_buf,FILE_PATH_LEN);
+	if(r == 0){
+		/* ready to delete file */
+		parent_dir = rmnode->parent;
+		child = parent_dir->child;
+		parent_dir->child = (ns_node **)calloc(--(cwd->how_many_children),sizeof(ns_node *));
+		for(j = 0,k=0;j < parent_dir->how_many_children;j++,k++){
+			if(k == i){k++;}
+			parent_dir->child[j] = child[k];
+		}
+		free(child);
+		/*----------------------------------------------------------*/
+		/*															*/
+		/*															*/
+		/*        call posix function to remove file here			*/
+		/*															*/
+		/*															*/
+		/*----------------------------------------------------------*/
+		free(rmnode->name);
+		free(rmnode);
+	}else{return 1;}/* get_ns_node fail */
 	return 0;
 }
 /*-------------------------------------split------------------------------------*/
-u32 cd(u8 * file_name)
+u32 cd(u8 * file_path)
 {
-	ns_node * cd_wd = get_ns_node(file_name);
-	if(cd_wd == (ns_node *)0){
-		perrmsg("get_ns_node");
-		return 1;
+	/* get_ns_node return 0 or 2 */
+	u32 r,i,ret = 0;
+	u8 file_name_buf[FILE_PATH_LEN];
+	ns_node * dest_dir;
+	bzero(file_name_buf,FILE_PATH_LEN);
+	r = get_ns_node(file_path,&dest_dir,&i,file_name_buf,FILE_PATH_LEN);
+	switch(r){
+		case 0:
+			if(dest_dir->file_type != DIRECTORY_FILE){
+				ret = 1;
+			}else{
+				current_working_dir = dest_dir;
+			}
+			break;
+		case 2:
+			current_working_dir = dest_dir;
+			break;
+		default:
+			/* cd error */
+			break;
 	}
-	if(cd_wd->file_type != DIRECTORY_FILE){
-		fprintf(stderr,"not a directory!");
-		return 2;
-	}
-	current_working_dir = cd_wd;
-	return 0;
+	return ret;
 }
 /*-------------------------------------split------------------------------------*/
-u32 ls(u8 * file_name)
+u32 ls(u8 * file_path)
 {
-	/* the return value can be ns_node* arrary
-	 * or something else */
-	ns_node * ls_file = get_ns_node(file_name);
-	if(ls_file == (ns_node *)0){
-		perrmsg("get_ns_node");
-		return 1;
+	/* list file */
+	u32 r,i,ret = 0;
+	u8 file_name_buf[FILE_PATH_LEN];
+	ns_node * lsfile;
+	bzero(file_name_buf,FILE_PATH_LEN);
+	r = get_ns_node(file_path,&lsfile,&i,file_name_buf,FILE_PATH_LEN);
+	switch(r){
+		case 0:
+		case 2:
+		default:
 	}
-	if(ls_file->file_type == REGULAR_FILE){
-		/* for regular file,just list this file */
-	}else if(ls_file->file_type == DIRECTORY_FILE){
-		/* for dir file,list all its children. 
-		 * some options can be provided here,
-		 * such as -r :recursively list file
-		 *		   -a : list all files 
-		 *		   -s : list in order
-		 *		   etc...*/
-	}
-	return 0;
+	return ret;
 }
 /*-------------------------------------split------------------------------------*/
 ns_node * adduser(u8 * user_name)
