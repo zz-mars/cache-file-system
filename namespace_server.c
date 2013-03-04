@@ -47,7 +47,9 @@
 #define SU_NAME				"su"
 #define SU_INIT_PW			"123"
 #define USER_INFO_FMT		"%d %d \/individuals\/%s %s %s\n"
+#define GET_USER_INFO_CMD_FMT     "grep %s %s"  /*1st %s is user_name,2nd is user_info file */
 #define GET_LEAST_AVAILABLE_UID   "./get_least_available_uid.sh"
+#define USER_INFO_BUFSZ		1024
 /* access control list */
 #define UREAD				0400
 #define UWRIT				0200
@@ -93,13 +95,15 @@ typedef struct CFS_USER{
 	struct CFS_USER * next;
 }cfs_user;
 /* namespace system stat information definition */
-static cfs_user super_user;
-static cfs_user * active_user_list = (cfs_user *)0; /* all active user in cfs are in a list */
-static cfs_user * current_user;  /* current user */
-
-static ns_node cfs_root_dir; /* ns_node of root dir*/
+/* initialized  on login */
+static cfs_user current_user;  /* current user */
 static ns_node * current_working_dir; /* current working dir */
+static ns_node * home_dir;      /* user's home dir,set when user login */
+/* initialized on init_ns */
+static ns_node cfs_root_dir; /* ns_node of root dir*/
 static ns_node * shared_dir;    /* shared dir */
+static cfs_user super_user;
+static cfs_user * active_user_list; /* all active user in cfs are in a list */
 
 /*-------------------------------------split------------------------------------*/
 static u32 binary_seach_file(u8 *file_name,ns_node ** child,u32 low,u32 high)
@@ -358,6 +362,30 @@ u32 ls(u8 * file_path)
 	return ret;
 }
 /*-------------------------------------split------------------------------------*/
+u32 get_user_info_by_name(u8 * user_name,u8 * buf,u32 bufsiz)
+{
+	/* get user info by name 
+	 * RETURN VALUE : 0 on success,user info will be in buf
+	 *				  > 0 fail */
+	FILE *fp;
+	u32 ret = 0;
+	u32 i = 0;
+	bzero(buf,bufsiz);
+	snprintf(buf,bufsiz,GET_USER_INFO_CMD_FMT,user_name,USER_INFO_FILE);
+	if((fp = popen(buf,"r")) == NULL){
+		fprintf(stderr,"popen fail!\n");
+		ret = 1;
+		goto op_over;
+	}
+	bzero(buf,bufsiz);
+	while(fgets(buf + i,bufsiz - i,fp) != NULL){i = strlen(buf);}
+	pclose(fp);
+	if(strlen(buf) == 0){
+		ret = 2;
+	}
+	return ret;
+}
+/*-------------------------------------split------------------------------------*/
 u32 adduser(u8 * user_name,u8 * pw)
 {
 	/* add a new individual user in cfs 
@@ -365,22 +393,45 @@ u32 adduser(u8 * user_name,u8 * pw)
 	 * 2) make home dir 
 	 * 3) update user_info.txt */
 	FILE *fp;
+	u32 ret = 0;
 	u32 uid,gid,i = 0;
-	u8 buf[BUFSIZ];
-	bzero(buf,BUFSIZ);
-	if((fp = popen(GET_LEAST_AVAILABLE_UID,"r")) == NULL){
-		fprintf(stderr,"popen fail!\n");
-		return 1;
+	u8 buf[USER_INFO_BUFSZ];
+	bzero(buf,USER_INFO_BUFSZ);
+	/* check if user name already exist */
+	if(get_user_info_by_name(user_name,buf,USER_INFO_BUFSZ) != 2){
+		/* user already exist or popen error */
+		ret = 1;
+		goto op_over;
 	}
-	while(fgets(buf + i,BUFSIZ - i,fp) != NULL){i = strlen(buf);}
+	/* user name is ok! 
+	 * now get the least available uid for new user */
+	if((fp = popen(GET_LEAST_AVAILABLE_UID,"r")) == NULL){
+		ret = 2;
+		goto op_over;
+	}
+	while(fgets(buf + i,USER_INFO_BUFSZ - i,fp) != NULL){i = strlen(buf);}
 	pclose(fp);
 	uid = atoi_u32(buf);
 	gid = uid;
-	bzero(buf,BUFSIZ);
-	snprintf(buf,BUFSIZ,USER_INFO_FMT,uid,gid,user_name,user_name,pw);
-	/* write to file */
-	return 0;
-
+	bzero(buf,USER_INFO_BUFSZ);
+	snprintf(buf,USER_INFO_BUFSZ,USER_INFO_FMT,uid,gid,user_name,user_name,pw);
+	/* write user information to file */
+	if((i = open(USER_INFO_FILE,O_WRONLY)) < 0){
+		ret = 3;
+		goto op_over;
+	}
+	lseek(i,0,SEEK_END);
+	if(write(i,buf,strlen(buf)) < 0){
+		close(i);
+		ret = 4;
+		goto op_over;
+	}
+	close(i);
+	/* create home dir for new user */
+	current_user.uid = uid;
+	current_user.gid = gid;
+op_over:
+	return ret;
 }
 /*-------------------------------------split------------------------------------*/
 /* namespace initialization */
