@@ -1,6 +1,7 @@
 /* cache file system namespace manager 
  * BY grant chen 27,Feb,2013 */
 #include"glob.h"
+#include"utility.h"
 #include"errmsg.h"
 /*  two kinds of user defined in cache fs
  * 1) Super user : 
@@ -63,7 +64,7 @@
 #define SU_INIT_PW			"123"
 /* user's info format 
  * uid + gid + home_dir + user_name + password */
-#define USER_INFO_FMT				"%d %d \/%s %s %s\n"
+#define USER_INFO_FMT				"%d %d /%s %s %s\n"
 #define GET_USER_INFO_CMD_FMT		"grep %s %s"  /*1st %s is user_name,2nd is user_info file */
 #define GET_LEAST_AVAILABLE_UID		"./get_least_available_uid.sh"
 #define USER_INFO_BUFSZ				1024
@@ -106,9 +107,15 @@ static ns_node * shared_dir;    /* shared dir */
 static cfs_user super_user;
 static cfs_user * active_user_list; /* all active user in cfs are in a list */
 /* set current_user */
-#define SET_CU(uid,gid)		(current_user.uid = uid;current_user.gid = gid;)
-#define SET_CWD(cwd)		(current_working_dir = cwd;)
-
+static inline void set_cu(u32 uid,u32 gid)
+{
+	current_user.uid = uid;
+	current_user.gid = gid;
+}
+static inline void set_cwd(ns_node * cwd)
+{
+	current_working_dir = cwd;
+}
 /*-------------------------------------split------------------------------------*/
 static u32 binary_seach_file(u8 *file_name,ns_node ** child,u32 low,u32 high)
 {
@@ -137,7 +144,7 @@ u8 * get_full_path(u8 * file_name)
 	return NULL;
 }
 /*-------------------------------------split------------------------------------*/
-u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,fbufsiz)
+u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,u32 fbufsiz)
 {
 	/* get ns_node for a given path.
 	 * *index is the file's position in the last lookup,no matter this look up succeeds or fails.
@@ -243,13 +250,15 @@ u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,
 		}
 cont:
 		/* reset lookup */
-		if(ret != 3 && IS_DIR_FILE(lkup_node->file_type) && IS_SHARED_FLAG_SET(lkup_node->file_type)){
-			/* this is the user's shared dir */
-			lkup_node = shared_dir;
+		if(ret != 3){
+			if(IS_DIR_FILE(lkup_node->file_type) && IS_SHARED_FLAG_SET(lkup_node->file_type)){
+				/* this is the user's shared dir */
+				lkup_node = shared_dir;
+			}
+			bzero(file_name_buf,fbufsiz);
+			fn_head = NULL;
+			fn_tail = NULL;
 		}
-		bzero(file_name_buf,fbufsiz);
-		fn_head = NULL;
-		fn_tail = NULL;
 	}
 op_over:
 	*index = i;
@@ -259,14 +268,20 @@ op_over:
 /*-------------------------------------split------------------------------------*/
 ns_node * mkfile(u8 * file_path,u8 file_type,u32 acl)
 {
-	/* make a new file */
+	/* make a new file 
+	 * ONLY REGULAR FILE AND DIRECTORY FILE
+	 * NO SHARED_FLAG OR SHARED_DIR IS ALLOWED HERE!
+	 * 1) THE /user/shared DIR WILL BE CREATED WITH SHARED_FLAG SET WHEN A NEW USER IS ADDED TO CFS
+	 * 2) /shared DIR WILL BE CREATED WITH SHARED_DIR SET WHEN INITIALIZE SYSTEM */
 	u32 index;
-	u32 r;
+	u32 r,j;
 	ns_node * nsnode;
 	ns_node * new_file = (ns_node *)0;
 	ns_node ** child;
 	u8 file_name_buf[FILE_PATH_LEN];
-	if(!IS_LEGAL_FILE_TYPE(file_type)){
+	if((IS_REG_FILE(file_type) || IS_DIR_FILE(file_type)) && /* regular or dir file only */
+			!IS_SHARED_FLAG_SET(file_type) &&                /* not /user/shared */
+			!IS_SHARED_DIR(file_type) ){					 /* not /shared */
 		serrmsg("ILLEGAL FILE TYPE!");
 		goto ret;
 	}
@@ -279,6 +294,7 @@ ns_node * mkfile(u8 * file_path,u8 file_type,u32 acl)
 			serrmsg("NEW FILE_NAME OR ITS PARENT NODE INVLAID!");
 			goto ret;
 		}
+		printf("ready to make a new file : %s \n \t\t under dir : %s\n",file_name_buf,nsnode->name);
 		child = nsnode->child;
 		new_file = (ns_node *)calloc(1,sizeof(ns_node));
 		if(new_file == (ns_node *)0){
@@ -309,11 +325,11 @@ ns_node * mkfile(u8 * file_path,u8 file_type,u32 acl)
 			new_file = (ns_node *)0;
 			goto ret;
 		}
-		cwd->child = child;
-		for(j = nsnode->how_many_children - 1;j > i;j--){
+		nsnode->child = child;
+		for(j = nsnode->how_many_children - 1;j > index;j--){
 			child[j] = child[j-1];
 		}
-		child[j] = new_file;
+		child[index] = new_file;
 	}
 ret:
 	return new_file;
@@ -332,7 +348,7 @@ u32 rmfile(u8 * file_path)
 		/* ready to delete file */
 		parent_dir = rmnode->parent;
 		child = parent_dir->child;
-		parent_dir->child = (ns_node **)calloc(--(cwd->how_many_children),sizeof(ns_node *));
+		parent_dir->child = (ns_node **)calloc(--(parent_dir->how_many_children),sizeof(ns_node *));
 		for(j = 0,k=0;j < parent_dir->how_many_children;j++,k++){
 			if(k == i){k++;}
 			parent_dir->child[j] = child[k];
@@ -377,18 +393,24 @@ u32 cd(u8 * file_path)
 	return ret;
 }
 /*-------------------------------------split------------------------------------*/
-u32 ls(u8 * file_path)
+u32 ls(u8 * file_path,ns_node ** single_file,ns_node *** all_file_in_dir,u32 * how_many_children)
 {
-	/* list file */
+	/* list file 
+	 * return 0 on fail! */
 	u32 r,i,ret = 0;
 	u8 file_name_buf[FILE_PATH_LEN];
 	ns_node * lsfile;
 	bzero(file_name_buf,FILE_PATH_LEN);
 	r = get_ns_node(file_path,&lsfile,&i,file_name_buf,FILE_PATH_LEN);
-	switch(r){
-		case 0:
-		case 2:
-		default:
+	if(r == 0 || r == 2){
+		if(IS_REG_FILE(lsfile->file_type)){
+			*single_file = lsfile;
+			ret = 1;
+		}else if(IS_DIR_FILE(lsfile->file_type)){
+			*all_file_in_dir = lsfile->child;
+			*how_many_children = lsfile->how_many_children;
+			ret = 2;
+		}
 	}
 	return ret;
 }
@@ -414,6 +436,7 @@ u32 get_user_info_by_name(u8 * user_name,u8 * buf,u32 bufsiz)
 	if(strlen(buf) == 0){
 		ret = 2;
 	}
+op_over:
 	return ret;
 }
 /*-------------------------------------split------------------------------------*/
@@ -423,6 +446,7 @@ u32 adduser(u8 * user_name,u8 * pw)
 	 * 1) get a uid 
 	 * 2) make home dir 
 	 * 3) update user_info.txt */
+	ns_node * hd,*user_shared_dir;
 	FILE *fp;
 	u32 ret = 0;
 	u32 uid,gid,i = 0;
@@ -459,14 +483,18 @@ u32 adduser(u8 * user_name,u8 * pw)
 	}
 	close(i);
 	/* create home dir for new user */
-	SET_CU(uid,gid);
+	set_cu(uid,gid);
 	bzero(buf,USER_INFO_BUFSZ);
-	snprintf(buf,USER_INFO_BUFSZ,"\/individuals\/%s",user_name);
-	mkfile(buf,DIRECTORY_FILE,0760);
+	snprintf(buf,USER_INFO_BUFSZ,"/%s",user_name);
+	hd = mkfile(buf,DIRECTORY_FILE,0760);
+	/* make shared dir in user's home dir */
 	bzero(buf,USER_INFO_BUFSZ);
-	snprintf(buf,USER_INFO_BUFSZ,"\/individuals\/%s\/%s",user_name,SHARED_DIR_NAME);
-	mkfile(buf,SHARED_DIR_FILE,0700);
-	/* done */
+	snprintf(buf,USER_INFO_BUFSZ,"/%s/%s",user_name,SHARED_DIR_NAME);
+	user_shared_dir = mkfile(buf,DIRECTORY_FILE,0760);
+	user_shared_dir->file_type |= SHARED_FLAG;
+	/* set current user back to super user 
+	 * coz only super user has the right to add a new user */
+	set_cu(SU_UID,SU_GID);
 op_over:
 	return ret;
 }
@@ -476,24 +504,37 @@ static void init_ns()
 {
 	/* dirs need to be initialized 
 	 * 1) /
-	 * 2) /root/
-	 * 3) /individuals/
-	 * 4) /shared/ 
+	 * 2) super user
+	 * 3) /shared/ 
 	 * */
 	/* root dir */
+	u32 fd;
+	u8 buf[USER_INFO_BUFSZ];
+	ns_node * for_share;
 	cfs_root_dir.name = ROOT_DIR_NAME;
 	cfs_root_dir.file_type = DIRECTORY_FILE;
+	cfs_root_dir.uid = SU_UID;
+	cfs_root_dir.gid = SU_GID;
+	cfs_root_dir.acl = 0700;
 	cfs_root_dir.parent = &cfs_root_dir;/* parent dir for root is itself */
 	cfs_root_dir.child = (struct NS_NODE **)0;
 	cfs_root_dir.how_many_children = 0;
 	/* super user */
 	super_user.uid = SU_UID;
 	super_user.gid = SU_GID;
-	SET_CU(SU_UID,SU_GID);
+	bzero(buf,USER_INFO_BUFSZ);
+	snprintf(buf,USER_INFO_BUFSZ,USER_INFO_FMT,SU_UID,SU_GID,SU_NAME,SU_NAME,SU_INIT_PW);
+	if((fd = open(USER_INFO_FILE,O_WRONLY)) < 0){
+		return;
+	}
+	lseek(fd,0,SEEK_END);
+	write(fd,buf,strlen(buf));
+	close(fd);
+	set_cu(SU_UID,SU_GID);
 	/* super user's information write to file */
-	mkfile(HOME_FOR_SU,DIRECTORY_FILE,0777);
-	mkfile(HOME_FOR_INDIVIDUALS,DIRECTORY_FILE,0777);
-	mkfile(HOME_FOR_SHARED,DIRECTORY_FILE,0777);
+	mkfile(HOME_FOR_SU,DIRECTORY_FILE,0700);
+	for_share = mkfile(HOME_FOR_SHARED,DIRECTORY_FILE,0777);
+	for_share->file_type |= SHARED_DIR;
 	return;
 }
 /*-------------------------------------split------------------------------------*/
@@ -509,5 +550,6 @@ static void init_ns()
 
 int main()
 {
+	init_ns();
 	return 0;
 }
