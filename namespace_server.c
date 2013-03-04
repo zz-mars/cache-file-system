@@ -6,50 +6,67 @@
  * 1) Super user : 
  *			super user of cfs,manages system information.
  * 2) Individual users : 
- *			every individual user has a home dir under /individuals/,
- *		    dir name is the user's name.
+ *			every individual user has a home dir under /,
+ *			for example,user1 has a home dir /user1
  * 3) How to share files in cfs :
  *			All the shared files in cfs can be accessed in dir /shared.
  *			There's a shared dir in every individual user's home dir.
  *			When users enter their shared dir,the actual action is that cwd is changed to /shared/.
- *			Special operations are needed to deal with this shared dir.
+ *			Special operations are needed to dispose shared dir.
  *	  */
-#define USER_NUM			 2  /* only two user*/
-#define HOME_FOR_SU          "/su"
-#define HOME_FOR_INDIVIDUALS "/individuals"
-#define HOME_FOR_SHARED      "/shared"
 
-#define INDIVIDUAL_USER_NUM  1024    /* individual users */
-/* file type definition */
-#define DIRECTORY_FILE		 00
-#define REGULAR_FILE		 01
-/* specail file type for file_sharing */
-#define SHARED_DIR_FILE		 02
+/* file type
+ * 1) REGULAR_FILE : name is file name
+ *	     			 parent is the pointer to its parent ns_node 
+ *					 child is set to NULL as regular file has no child 
+ *					 how_many_children is set to 0 
+ * 2) DIRECTORY_FILE : name is directory name
+ *					   parent is the pointer to its parent ns_node 
+ *					   child is the pointer to a pointer array,whose elements is the pointer to its child 
+ *					   how_many_children is the number of all its children 
+ * 3) SHARED_FLAG	 : is one part of file type,only make sense for dir file.
+ *					   when SHARED_FLAG of dir file is set,it
+ * special file type for the "shared" dir file in every individual user's home dir.
+ *						This special file is the soft link to /shared.
+ */
+/* file type definition 
+ * A FILE'S TYPE CAN BE */ 
+#define REGULAR_FILE		 00
+#define DIRECTORY_FILE		 01
+/* for every dir whose SHARED_FLAG is set,it is a soft link to /shared.
+ * ONLY SUPER USER CAN MAKE THIS KIND OF DIR FILE WITH SHARED_FLAG SET.
+ * ONLY /shared 'S SHARED_DIR SET.*/
+#define SHARED_FLAG			 02
+/* SHARED_DIR is only for /shared dir
+ * when going to the UPPER_DIR,if we are now in /shared (OR SHARED_DIR SET),
+ * we go to the current user's home dir instead of dir "/" */
+#define SHARED_DIR			 04	/* only for /shared */
+
+#define IS_DIR_FILE(file_type)			(file_type & DIRECTORY_FILE)
+#define IS_REG_FILE(file_type)			(!(file_type | REGULAR_FILE))
+#define IS_SHARED_FLAG_SET(file_type)	(file_type & SHARED_FLAG)
+#define IS_SHARED_DIR(file_type)		(file_type & SHARED_DIR)
+
+#define HOME_FOR_SU          "/su"
+#define HOME_FOR_SHARED      "/shared"
 
 #define HOME_DIR_NAME		 "~"
 #define ROOT_DIR_NAME		 "/"
 #define UPPER_DIR_NAME		 ".."
 #define SHARED_DIR_NAME	     "shared"
-#define IS_LEGAL_FILE_TYPE(file_type)  ((file_type == DIRECTORY_FILE) || \
-				   					    (file_type == REGULAR_FILE))
 /* user's information is saved in a file */
 #define USER_INFO_FILE		"user_info.txt"
-/* user's infor format 
- * uid + gid + home_dir + user_name + password */
-/* for super user UID : 0
- *				  GID : 0
- *				  HDIR: /su
- *				  UN  : su
- *				  PW  : 123
- *				  */
+/* super user info */
 #define SU_UID				00
 #define SU_GID				00
 #define SU_NAME				"su"
 #define SU_INIT_PW			"123"
-#define USER_INFO_FMT		"%d %d \/individuals\/%s %s %s\n"
-#define GET_USER_INFO_CMD_FMT     "grep %s %s"  /*1st %s is user_name,2nd is user_info file */
-#define GET_LEAST_AVAILABLE_UID   "./get_least_available_uid.sh"
-#define USER_INFO_BUFSZ		1024
+/* user's info format 
+ * uid + gid + home_dir + user_name + password */
+#define USER_INFO_FMT				"%d %d \/%s %s %s\n"
+#define GET_USER_INFO_CMD_FMT		"grep %s %s"  /*1st %s is user_name,2nd is user_info file */
+#define GET_LEAST_AVAILABLE_UID		"./get_least_available_uid.sh"
+#define USER_INFO_BUFSZ				1024
 /* access control list */
 #define UREAD				0400
 #define UWRIT				0200
@@ -60,22 +77,6 @@
 #define OREAD				0004
 #define OWRIT				0002
 #define OEXEC				0001
-/* namespace node 
- * only regular file & dir file & soft link file  supported 
- * for file_type in REGULAR_FILE & DIRECTORY_FILE & SLINK_FILE
- * 1) REGULAR_FILE : name is file name
- *	     			 parent is the pointer to its parent ns_node 
- *					 child is set to NULL as regular file has no child 
- *					 how_many_children is set to 0 
- * 2) DIRECTORY_FILE : name is directory name
- *					   parent is the pointer to its parent ns_node 
- *					   child is the pointer to a pointer array,whose elements is the pointer to its child 
- *					   how_many_children is the number of all its children 
- * 3) ATTENTION : for the shared dir in every single user's home dir,its name is "/shared"
- *				  its file_type is DIRECTORY_FILE
- *				  its parent is user's home dir
- *				  no child
- */
 /*-------------------------------------split------------------------------------*/
 typedef struct NS_NODE{
 	u8 * name;                     /* file name */
@@ -104,6 +105,9 @@ static ns_node cfs_root_dir; /* ns_node of root dir*/
 static ns_node * shared_dir;    /* shared dir */
 static cfs_user super_user;
 static cfs_user * active_user_list; /* all active user in cfs are in a list */
+/* set current_user */
+#define SET_CU(uid,gid)		(current_user.uid = uid;current_user.gid = gid;)
+#define SET_CWD(cwd)		(current_working_dir = cwd;)
 
 /*-------------------------------------split------------------------------------*/
 static u32 binary_seach_file(u8 *file_name,ns_node ** child,u32 low,u32 high)
@@ -129,9 +133,8 @@ static u32 binary_seach_file(u8 *file_name,ns_node ** child,u32 low,u32 high)
 /*-------------------------------------split------------------------------------*/
 u8 * get_full_path(u8 * file_name)
 {
-	/* get full path for a given file name under cwd */
-	ns_node * f = get_ns_node(cwd,file_name);
-	u32 full_path_len = strlen(file_name);
+	/* return the full path of a given file_name */
+	return NULL;
 }
 /*-------------------------------------split------------------------------------*/
 u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,fbufsiz)
@@ -140,9 +143,9 @@ u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,
 	 * *index is the file's position in the last lookup,no matter this look up succeeds or fails.
 	 * RETURN TABLE :
 	 *						return_value	file_name_buf		*nsnode
-	 * success					0			 empty				ns_node ptr of the right file
+	 * success					0			 empty				ns_node ptr of the right file(not upper dir file)
 	 * lkup_node not a dir :	1			 empty				the ptr of ns_node that leads to error (not a dir)
-	 * is upper dir file   :    2			 UPPER_DIR_NAME 	the ptr of the parent ns_node
+	 * is upper dir file   :    2			 empty			 	the ptr of the parent ns_node
 	 * no such file or dir :	3			 file name			ptr of final dir in this file_path
 	 * no such file or dir :	4			 inter_dir name		ptr of the last dir when "no such file or dir" happens
 	 * ATTENTION : index only makes sense when return value is 0 : used to delete a file
@@ -183,42 +186,70 @@ u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,
 			inword = 0;
 		}
 		if(fn_head != NULL && fn_tail != NULL && fn_head < fn_tail){
-			/* look up file name identified by string from fn_head to fn_tail in lkup_node */
-			if(lkup_node->file_type != DIRECTORY_FILE){
-				serrmsg("NOT A DIRECTORY : %s",lkup_node->name);
-				ret = 1;
-				goto op_over;
+			/* just to see what happened in last lookup! */
+			switch(ret){
+				case 0:
+					/* everything is just fine! */
+					break;
+				case 1:
+					/* impossible */
+					break;
+				case 2:
+					/* upper dir */
+					break;
+				case 3:
+					/* ENOENT HAPPENS IN LAST LOOKUP,
+					 * BUT STILL WE GOT HERE!
+					 * SO IT IS A INTER_DIR LOOKUP FAILURE! */
+					ret = 4;
+					goto op_over;
+				default:
+					/* unrecognized */
+					break;
+			}
+			/* reset ret */
+			ret = 0;
+			if(!IS_DIR_FILE(lkup_node->file_type)){
+					serrmsg("NOT A DIRECTORY : %s",lkup_node->name);
+					ret = 1;
+					goto op_over;
 			}
 			i = fn_tail - fn_head;
 			strncpy(file_name_buf,fn_head,i);
 			if(strcmp(file_name_buf,UPPER_DIR_NAME) == 0){
 				/* go to upper dir */
-				lkup_node = lkup_node->parent;
-				if(fn_tail == tail){
-					/* the file is a upper_dir file */
-					ret = 2;
-					goto op_over;
+				if(IS_SHARED_DIR(lkup_node->file_type)){
+					/* for /shared dir,UPPER_DIR is the home dir */
+					lkup_node = home_dir;
+				}else{
+					/* just go back to the parent */
+					lkup_node = lkup_node->parent;
 				}
-				/* reset file name */
-				bzero(file_name_buf,fbufsiz);
-				fn_head = NULL;
-				fn_tail = NULL;
-				continue;
+				/* set ret to tell caller this is a UPPER_DIR */
+				ret = 2;
+				goto cont;
 			}
+			/* not UPPER_DIR */
 			i = binary_seach_file(file_name_buf,lkup_node->child,0,lkup_node->how_many_children - 1);
 			if(strcmp(file_name_buf,lkup_node->child[i]->name) != 0){
 				/* look up fail */
 				serrmsg("%s NO SUCH FILE OR DIRECTORY UNDER DIRECTORY %s",file_name_buf,lkup_node->name);
-				ret = (fn_tail == tail ? 3 : 4);
-				goto op_over;
+				ret = 3;
+				/* just continue to see if still there are something in the file_path */
+				goto cont;
 			}
 			/* go to next dir */
 			lkup_node = lkup_node->child[i];
-			/* reset file name */
-			bzero(file_name_buf,fbufsiz);
-			fn_head = NULL;
-			fn_tail = NULL;
 		}
+cont:
+		/* reset lookup */
+		if(ret != 3 && IS_DIR_FILE(lkup_node->file_type) && IS_SHARED_FLAG_SET(lkup_node->file_type)){
+			/* this is the user's shared dir */
+			lkup_node = shared_dir;
+		}
+		bzero(file_name_buf,fbufsiz);
+		fn_head = NULL;
+		fn_tail = NULL;
 	}
 op_over:
 	*index = i;
@@ -264,8 +295,8 @@ ns_node * mkfile(u8 * file_path,u8 file_type,u32 acl)
 		}
 		strncpy(new_file->name,file_name_buf,j);
 		new_file->file_type = file_type;
-		new_file->uid = current_user->uid;
-		new_file->gid = current_user->gid;
+		new_file->uid = current_user.uid;
+		new_file->gid = current_user.gid;
 		new_file->acl = acl;
 		new_file->parent = nsnode;
 		new_file->child = (ns_node **)0;
@@ -428,8 +459,14 @@ u32 adduser(u8 * user_name,u8 * pw)
 	}
 	close(i);
 	/* create home dir for new user */
-	current_user.uid = uid;
-	current_user.gid = gid;
+	SET_CU(uid,gid);
+	bzero(buf,USER_INFO_BUFSZ);
+	snprintf(buf,USER_INFO_BUFSZ,"\/individuals\/%s",user_name);
+	mkfile(buf,DIRECTORY_FILE,0760);
+	bzero(buf,USER_INFO_BUFSZ);
+	snprintf(buf,USER_INFO_BUFSZ,"\/individuals\/%s\/%s",user_name,SHARED_DIR_NAME);
+	mkfile(buf,SHARED_DIR_FILE,0700);
+	/* done */
 op_over:
 	return ret;
 }
@@ -452,21 +489,11 @@ static void init_ns()
 	/* super user */
 	super_user.uid = SU_UID;
 	super_user.gid = SU_GID;
+	SET_CU(SU_UID,SU_GID);
 	/* super user's information write to file */
 	mkfile(HOME_FOR_SU,DIRECTORY_FILE,0777);
 	mkfile(HOME_FOR_INDIVIDUALS,DIRECTORY_FILE,0777);
 	mkfile(HOME_FOR_SHARED,DIRECTORY_FILE,0777);
-	/* cwd set when user login */
-/*	current_working_dir = &cfs_root_dir; */
-	if(mkfile(&cfs_root_dir,HOME_FOR_SU,DIRECTORY_FILE) == (ns_node *)0){
-		fprintf(stderr,"INIT DIR \/%s FAIL!\n",HOME_FOR_SU);
-	}
-	if(mkfile(&cfs_root_dir,HOME_FOR_INDIVIDUALS,DIRECTORY_FILE) == (ns_node *)0){
-		fprintf(stderr,"INIT DIR \/%s FAIL!\n",HOME_FOR_INDIVIDUALS);
-	}
-	if(mkfile(&cfs_root_dir,HOME_FOR_SHARED,DIRECTORY_FILE) == (ns_node *)0){
-		fprintf(stderr,"INIT DIR \/%s FAIL!\n",HOME_FOR_SHARED);
-	}
 	return;
 }
 /*-------------------------------------split------------------------------------*/
