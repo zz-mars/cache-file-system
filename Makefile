@@ -20,4 +20,4 @@ namespace_server : namespace_server.o utility.o errmsg.o
 	gcc namespace_server.o utility.o errmsg.o $(CC_OP) namespace_server $(LINK_LIB)
 .PHONY : clean
 clean : 
-	rm $(OBJS_M) $(OBJS) $(ALL)
+	rm $(OBJS_M) $(OBJS) $(ALL) user_info.txt

@@ -44,9 +44,13 @@
 #define SHARED_DIR			 04	/* only for /shared */
 
 #define IS_DIR_FILE(file_type)			(file_type & DIRECTORY_FILE)
-#define IS_REG_FILE(file_type)			(!(file_type | REGULAR_FILE))
+#define IS_REG_FILE(file_type)			(file_type == REGULAR_FILE)
 #define IS_SHARED_FLAG_SET(file_type)	(file_type & SHARED_FLAG)
 #define IS_SHARED_DIR(file_type)		(file_type & SHARED_DIR)
+#define IS_LEGAL_FILE_TYPE(file_type)   (IS_REG_FILE(file_type) ||\
+										 IS_DIR_FILE(file_type) &&\
+										 !IS_SHARED_FLAG_SET(file_type) &&\
+										 !IS_SHARED_DIR(file_type))
 
 #define HOME_FOR_SU          "/su"
 #define HOME_FOR_SHARED      "/shared"
@@ -162,8 +166,11 @@ u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,
 	ns_node * lkup_node;
 	u32 fn_depth = 0,inword = 0;
 	u32 i = strlen(file_path);
-	u8 * fn_head = NULL,*fn_tail = NULL,*p = file_path;
+	u8 * fn_head = NULL;
+	u8 * fn_tail = NULL;
+	u8 * p = file_path;
 	u8 * tail = file_path + i;/* tail points to the one character right after the last byte in file_path */
+	printf("get_ns_node for file %s\n",file_path);
 	/* set the starting node 
 	 * 1) root dir if file_path starts with '/'
 	 * 2) else current working dir */
@@ -176,10 +183,8 @@ u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,
 		inword = 1;
 		fn_depth++;
 	}
-	printf("start lookup from cwd -- %s\n",lkup_node->name);
-	bzero(file_name_buf,fbufsiz);
+	printf("start lookup from dir -- %s\n",lkup_node->name);
 	for(p = file_path;p <= tail;p++){
-		/* NO SLINK_FILE ALLOWED! */
 		if(inword == 0 && p < tail && *p != '/'){
 			/* just right enter word */
 			fn_head = p;
@@ -194,41 +199,23 @@ u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,
 			inword = 0;
 		}
 		if(fn_head != NULL && fn_tail != NULL && fn_head < fn_tail){
-			/* just to see what happened in last lookup! */
-			switch(ret){
-				case 0:
-					/* everything is just fine! */
-					printf("last lookup ok!\n");
-					break;
-				case 1:
-					/* impossible */
-					break;
-				case 2:
-					/* upper dir */
-					printf("last lookup is UPPER_DIR\n");
-					break;
-				case 3:
-					/* ENOENT HAPPENS IN LAST LOOKUP,
-					 * BUT STILL WE GOT HERE!
-					 * SO IT IS A INTER_DIR LOOKUP FAILURE! */
-					printf("lookup fail for inter_dir not exist\n");
-					ret = 4;
-					goto op_over;
-				default:
-					/* unrecognized */
-					break;
+			if(ret == 3){
+				serrmsg("LOOKUP INTER_DIR FAIL!");
+				ret = 4;
+				goto op_over;
 			}
-			/* reset ret */
 			ret = 0;
+			i = fn_tail - fn_head;
+			bzero(file_name_buf,fbufsiz);
+			strncpy(file_name_buf,fn_head,i);
+			printf("now lookup file -- %s\n",file_name_buf);
+		/***************************** lkup_node is not dir ****************************/
 			if(!IS_DIR_FILE(lkup_node->file_type)){
-				printf("lookup node is not a dir file\n");
 				serrmsg("NOT A DIRECTORY : %s",lkup_node->name);
 				ret = 1;
 				goto op_over;
 			}
-			i = fn_tail - fn_head;
-			strncpy(file_name_buf,fn_head,i);
-			printf("now lookup file -- %s\n",file_name);
+		/******************** look up file ***********************/
 			if(strcmp(file_name_buf,UPPER_DIR_NAME) == 0){
 				printf("go to upper\n");
 				/* go to upper dir */
@@ -242,35 +229,41 @@ u32 get_ns_node(u8 * file_path,ns_node ** nsnode,u32 * index,u8 * file_name_buf,
 					lkup_node = lkup_node->parent;
 				}
 				/* set ret to tell caller this is a UPPER_DIR */
+				serrmsg("IS UPPER_DIR \n");
 				ret = 2;
 				goto cont;
 			}
-			/* not UPPER_DIR */
-			if(lkup_node->how_many_children == 0){
-				/* no children */
-			}
-			i = binary_seach_file(file_name_buf,lkup_node->child,0,lkup_node->how_many_children - 1);
-			if(strcmp(file_name_buf,lkup_node->child[i]->name) != 0){
-				/* look up fail */
-				printf("no such file or dir -- %s\n",file_name);
-				serrmsg("%s NO SUCH FILE OR DIRECTORY UNDER DIRECTORY %s",file_name_buf,lkup_node->name);
-				ret = 3;
-				/* just continue to see if still there are something in the file_path */
-				goto cont;
-			}
+	/************************************** NO SUCH FILE OR DIR *******************************************/		
+	/**/	if(lkup_node->how_many_children == 0){
+	/**/		/* no children */
+	/**/		serrmsg("NO CHILD IN LKUPNODE");
+	/**/		printf("no child in dir -- %s\n",lkup_node->name);
+	/**/		i = 0;
+	/**/		ret = 3;
+	/**/		goto cont;
+	/**/	}
+	/**/	i = binary_seach_file(file_name_buf,lkup_node->child,0,lkup_node->how_many_children - 1);
+	/**/	if(strcmp(file_name_buf,lkup_node->child[i]->name) != 0){
+	/**/		/* look up fail */
+	/**/		printf("no such file or dir -- %s\n",file_name_buf);
+	/**/		serrmsg("%s NO SUCH FILE OR DIRECTORY UNDER DIRECTORY %s",file_name_buf,lkup_node->name);
+	/**/		ret = 3;
+	/**/		/* just continue to see if still there are something in the file_path */
+	/**/		goto cont;
+	/**/	}
+	/*******************************************************************************************************/
 			/* go to next dir */
 			lkup_node = lkup_node->child[i];
-		}
 cont:
-		/* reset lookup */
-		if(ret != 3){
-			if(IS_DIR_FILE(lkup_node->file_type) && IS_SHARED_FLAG_SET(lkup_node->file_type)){
-				/* this is the user's shared dir */
-				lkup_node = shared_dir;
+			/* reset lookup */
+			if(ret != 3){
+				if(IS_DIR_FILE(lkup_node->file_type) && IS_SHARED_FLAG_SET(lkup_node->file_type)){
+					/* this is the user's shared dir */
+					lkup_node = shared_dir;
+				}
+				fn_head = NULL;
+				fn_tail = NULL;
 			}
-			bzero(file_name_buf,fbufsiz);
-			fn_head = NULL;
-			fn_tail = NULL;
 		}
 	}
 op_over:
@@ -292,15 +285,15 @@ ns_node * mkfile(u8 * file_path,u8 file_type,u32 acl)
 	ns_node * new_file = (ns_node *)0;
 	ns_node ** child;
 	u8 file_name_buf[FILE_PATH_LEN];
-	if((IS_REG_FILE(file_type) || IS_DIR_FILE(file_type)) && /* regular or dir file only */
-			!IS_SHARED_FLAG_SET(file_type) &&                /* not /user/shared */
-			!IS_SHARED_DIR(file_type) ){					 /* not /shared */
+	if(!IS_LEGAL_FILE_TYPE(file_type)){
 		serrmsg("ILLEGAL FILE TYPE!");
 		goto ret;
 	}
 	bzero(file_name_buf,FILE_PATH_LEN);
 	r = get_ns_node(file_path,&nsnode,&index,file_name_buf,FILE_PATH_LEN);
+	printf("MKFIEL : RETURN VALUE FROM GET_NS_NODE  -- %d\n",r);
 	if(r == 3){
+		printf("new file -- %s will be created under dir %s\n",file_name_buf,nsnode->name);
 		/* ready to make a new file! */
 		if(strlen(file_name_buf) == 0 || nsnode == (ns_node *)0){
 			/* some error happened */
@@ -438,6 +431,7 @@ u32 get_user_info_by_name(u8 * user_name,u8 * buf,u32 bufsiz)
 	u32 i = 0;
 	bzero(buf,bufsiz);
 	snprintf(buf,bufsiz,GET_USER_INFO_CMD_FMT,user_name,USER_INFO_FILE);
+	printf("get_user_info_by_name command_line : %s\n",buf);
 	if((fp = popen(buf,"r")) == NULL){
 		fprintf(stderr,"popen fail!\n");
 		ret = 1;
@@ -512,6 +506,103 @@ op_over:
 	return ret;
 }
 /*-------------------------------------split------------------------------------*/
+u32 user_login()
+{
+	/* set something 
+	 * 1) read user_name&pw from stdin for authentication
+	 * 2) set current user
+	 * 3) set current working dir
+	 * 4) set home dir
+	 * */
+	u32 ret = 0;
+	u8 * p,*q;
+	u8 * user_name_hint = "user : ";
+	u8 * pw_hint = "password : ";
+	u8 user_input_buf[USER_INFO_BUFSZ];
+	u32 i,j,r,index;
+	cfs_user login_user;
+	ns_node * login_home_dir;
+	u8 user_info_buf[USER_INFO_BUFSZ];
+	bzero(user_input_buf,USER_INFO_BUFSZ);
+	fputs(user_name_hint,stdout);
+	fgets(user_input_buf,USER_INFO_BUFSZ,stdin);
+	i = strlen(user_input_buf);
+	user_input_buf[i-1] = '\0';
+	r = get_user_info_by_name(user_input_buf,user_info_buf,USER_INFO_BUFSZ);
+	///*test*/
+	//for(p=user_info_buf;*p!='\0';p++){
+	//	printf("%c  %d\n",*p,*p);
+	//}
+	/*test over*/
+	if(r != 0){
+		ret = 1;
+		fprintf(stderr,"user not exist!\n");
+		goto op_over;
+	}
+	i = strlen(user_info_buf);
+	user_info_buf[--i] = '\0';
+	printf("user info : %s\n",user_info_buf);
+	/* now user's info are in user_info_buf */
+	bzero(user_input_buf,USER_INFO_BUFSZ);
+	fputs(pw_hint,stdout);
+	fgets(user_input_buf,USER_INFO_BUFSZ,stdin);
+	j = strlen(user_input_buf);
+	user_input_buf[--j] = '\0';
+	if(*(user_info_buf + i - j - 1) == CH_SPACE && strncmp(user_input_buf,user_info_buf + i - j,j) == 0){
+		/* authentication ok */
+		p = user_info_buf;
+		q = p;
+		while(*p != CH_SPACE){p++;}
+		*p = '\0';
+		login_user.uid = atoi_u32(q);
+		q = p + 1;
+		while(*q == CH_SPACE){q++;}
+		p = q;
+		while(*p != CH_SPACE){p++;}
+		*p = '\0';
+		login_user.gid = atoi_u32(q);
+		q = p + 1;
+		while(*q == CH_SPACE){q++;}
+		p = q;
+		while(*p != CH_SPACE){p++;}
+		*p = '\0';
+		bzero(user_input_buf,USER_INFO_BUFSZ);
+		r = get_ns_node(q,&login_home_dir,&index,user_input_buf,USER_INFO_BUFSZ);
+		if( r != 0 && r != 2){
+			ret = 2;
+			perrmsg("get_home_dir");
+			goto op_over;
+		}
+		set_cwd(login_home_dir);
+		set_cu(login_user.uid,login_user.gid);
+		home_dir = login_home_dir;
+	}else{
+		fprintf(stderr,"INCORRECT PW!\n");
+		ret = 3;
+		goto op_over;
+	}
+op_over:
+	return ret;
+}
+/*-------------------------------------split------------------------------------*/
+void print_ns_node(ns_node * node)
+{
+	u8 * file_type;
+	if(IS_DIR_FILE(node->file_type)){
+		file_type = "DIRECTORY_FILE";
+	}else if(IS_REG_FILE(node->file_type)){
+		file_type = "REGULAR_FILE";
+	}
+	printf("file_type : %s\n",file_type);
+	printf("file_name : %s\n",node->name);
+	printf("uid		  : %d\n",node->uid);
+	printf("gid		  : %d\n",node->gid);
+	printf("acl		  : %o\n",node->acl);
+	printf("parent	  : %s\n",node->parent->name);
+	printf("child_num : %d\n",node->how_many_children);
+	return;
+}
+/*-------------------------------------split------------------------------------*/
 /* namespace initialization */
 static void init_ns()
 {
@@ -523,7 +614,7 @@ static void init_ns()
 	/* root dir */
 	u32 fd;
 	u8 buf[USER_INFO_BUFSZ];
-	ns_node * for_share;
+	ns_node * newnode;
 	printf("init cfs root dir...\n");
 	cfs_root_dir.name = ROOT_DIR_NAME;
 	cfs_root_dir.file_type = DIRECTORY_FILE;
@@ -533,6 +624,7 @@ static void init_ns()
 	cfs_root_dir.parent = &cfs_root_dir;/* parent dir for root is itself */
 	cfs_root_dir.child = (struct NS_NODE **)0;
 	cfs_root_dir.how_many_children = 0;
+	print_ns_node(&cfs_root_dir);
 	printf("init cfs super user...\n");
 	/* super user */
 	super_user.uid = SU_UID;
@@ -547,28 +639,30 @@ static void init_ns()
 	write(fd,buf,strlen(buf));
 	close(fd);
 	set_cu(SU_UID,SU_GID);
+	set_cwd(&cfs_root_dir);
 	/* super user's information write to file */
 	printf("make home dir for super user...\n");
-	mkfile(HOME_FOR_SU,DIRECTORY_FILE,0700);
+	if((newnode = mkfile(HOME_FOR_SU,DIRECTORY_FILE,0700)) == (ns_node *)0){
+		perrmsg("make home from su");
+		return;
+	}
+	print_ns_node(newnode);
 	printf("make shared dir...\n");
-	for_share = mkfile(HOME_FOR_SHARED,DIRECTORY_FILE,0777);
+	if((newnode = mkfile(HOME_FOR_SHARED,DIRECTORY_FILE,0777)) == (ns_node *)0){
+		perrmsg("make shared dir");
+		return;
+	}
 	printf("set SHARED_DIR flag...\n");
-	for_share->file_type |= SHARED_DIR;
+	newnode->file_type = newnode->file_type | SHARED_DIR;
+	print_ns_node(newnode);
 	return;
 }
-/*-------------------------------------split------------------------------------*/
-
-
-	/*----------------------------------------------------------*/
-	/*															*/
-	/*															*/
-	/*             user login module							*/
-	/*				to be continue...							*/
-	/*															*/
-	/*----------------------------------------------------------*/
-
 int main()
 {
 	init_ns();
+	if(user_login() == 0){
+		/* login success! */
+		printf("login ok!\n");
+	}
 	return 0;
 }
