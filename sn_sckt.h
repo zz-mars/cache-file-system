@@ -9,7 +9,7 @@
 #include<netinet/in.h>
 #include<arpa/inet.h>
 #include<netinet/sctp.h>
-#define FS_SUPERNODE_IP "127.0.0.1"
+#define FS_SUPERNODE_IP "192.168.0.23"
 #define FS_SUPERNODE_PORT 9399
 #define FS_SUPERNODE_MAX_LISTEN_Q 100
 /*----------------------- sock_msg dispose definition start ------------------------*/

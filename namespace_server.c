@@ -30,28 +30,79 @@
  * special file type for the "shared" dir file in every individual user's home dir.
  *						This special file is the soft link to /shared.
  */
-/* file type definition 
- * A FILE'S TYPE CAN BE */ 
-#define REGULAR_FILE		 00
-#define DIRECTORY_FILE		 01
-/* for every dir whose SHARED_FLAG is set,it is a soft link to /shared.
- * ONLY SUPER USER CAN MAKE THIS KIND OF DIR FILE WITH SHARED_FLAG SET.
- * ONLY /shared 'S SHARED_DIR SET.*/
-#define SHARED_FLAG			 02
-/* SHARED_DIR is only for /shared dir
- * when going to the UPPER_DIR,if we are now in /shared (OR SHARED_DIR SET),
- * we go to the current user's home dir instead of dir "/" */
-#define SHARED_DIR			 04	/* only for /shared */
-
-#define IS_DIR_FILE(file_type)			(file_type & DIRECTORY_FILE)
-#define IS_REG_FILE(file_type)			(file_type == REGULAR_FILE)
-#define IS_SHARED_FLAG_SET(file_type)	(file_type & SHARED_FLAG)
-#define IS_SHARED_DIR(file_type)		(file_type & SHARED_DIR)
-#define IS_LEGAL_FILE_TYPE(file_type)   (IS_REG_FILE(file_type) ||\
-										 IS_DIR_FILE(file_type) &&\
-										 !IS_SHARED_FLAG_SET(file_type) &&\
-										 !IS_SHARED_DIR(file_type))
-
+/********************* ACL & FILE_TYPE DEFINITION *******************
+ * ACL\BUCKET&OBJ		BUCKET								OBJ
+ * read					list all objs under this bucjet		read this obj
+ * write				create&remove%overwrite file		not defined
+ * read_acl				read the bucket acl					read the obj acl
+ * write_acl			write the bucket acl				write the obj acl
+ * full_control			read&writ&r_acl&w_acl				read&r_acl&w_acl
+ * */
+#define DIR_BIT				0x1000
+#define REG_BIT				0x2000
+#define SHR_FLAG_BIT		0x4000
+#define SHR_DIR_BIT			0x8000
+#define U_READ				0x0800
+#define U_WRIT				0x0400
+#define U_RACL				0x0200
+#define U_WACL				0x0100
+#define G_READ				0x0080
+#define G_WRIT				0x0040
+#define G_RACL				0x0020
+#define G_WACL				0x0010
+#define O_READ				0x0008
+#define O_WRIT				0x0004
+#define O_RACL				0x0002
+#define O_WACL				0x0001
+#define DIR_BIT_SET(ft)		(ft & DIR_BIT)
+#define REG_BIT_SET(ft)		(ft & REG_BIT)
+#define SHR_FLG_BIT_SET(ft)	(ft & SHR_FLAG_BIT)
+#define SHR_DIR_BIT_SET(ft)	(ft & SHR_DIR_BIT)
+#define FT_DIR(ft)			(DIR_BIT_SET(ft) && \
+							 !REG_BIT_SET(ft) && \
+							 !(SHR_FLG_BIT_SET(ft)&&SHR_DIR_BIT_SET(ft)))
+#define FT_REG(ft)			(REG_BIT_SET(ft) &&\
+							 !DIR_BIT_SET(ft) &&\
+							 !SHR_FLG_BIT_SET(ft) &&\
+							 !SHR_DIR_BIT_SET(ft))
+#define SET_DIR(ft)			ft |= DIR_BIT
+#define SET_REG(ft)			ft |= REG_BIT
+#define SET_SHR_FLG(ft)		ft |= SHR_FLG_BIT
+#define SET_SHR_DIR(ft)		ft |= SHR_DIR_BIT
+ 
+//THE ORIGINAL DEFINITION NOT USED NOW
+////  * file type definition 
+//// * A FILE'S TYPE CAN BE  
+//#define REGULAR_FILE		 00
+//#define DIRECTORY_FILE		 01
+///* for every dir whose SHARED_FLAG is set,it is a soft link to /shared.
+// * ONLY SUPER USER CAN MAKE THIS KIND OF DIR FILE WITH SHARED_FLAG SET.
+// * ONLY /shared 'S SHARED_DIR SET.*/
+//#define SHARED_FLAG			 02
+///* SHARED_DIR is only for /shared dir
+// * when going to the UPPER_DIR,if we are now in /shared (OR SHARED_DIR SET),
+// * we go to the current user's home dir instead of dir "/" */
+//#define SHARED_DIR			 04	/* only for /shared */
+//
+//#define IS_DIR_FILE(file_type)			(file_type & DIRECTORY_FILE)
+//#define IS_REG_FILE(file_type)			(file_type == REGULAR_FILE)
+//#define IS_SHARED_FLAG_SET(file_type)	(file_type & SHARED_FLAG)
+//#define IS_SHARED_DIR(file_type)		(file_type & SHARED_DIR)
+//#define IS_LEGAL_FILE_TYPE(file_type)   (IS_REG_FILE(file_type) ||\
+//										 IS_DIR_FILE(file_type) &&\
+//										 !IS_SHARED_FLAG_SET(file_type) &&\
+//										 !IS_SHARED_DIR(file_type))
+//
+///* access control list */
+//#define UREAD				0400
+//#define UWRIT				0200
+//#define UEXEC				0100
+//#define GREAD				0040
+//#define GWRIT				0020
+//#define GEXEC				0010
+//#define OREAD				0004
+//#define OWRIT				0002
+//#define OEXEC				0001
 #define HOME_FOR_SU          "/su"
 #define HOME_FOR_SHARED      "/shared"
 
@@ -72,23 +123,14 @@
 #define GET_USER_INFO_CMD_FMT		"grep %s %s"  /*1st %s is user_name,2nd is user_info file */
 #define GET_LEAST_AVAILABLE_UID		"./get_least_available_uid.sh"
 #define USER_INFO_BUFSZ				1024
-/* access control list */
-#define UREAD				0400
-#define UWRIT				0200
-#define UEXEC				0100
-#define GREAD				0040
-#define GWRIT				0020
-#define GEXEC				0010
-#define OREAD				0004
-#define OWRIT				0002
-#define OEXEC				0001
 /*-------------------------------------split------------------------------------*/
 typedef struct NS_NODE{
 	u8 * name;                     /* file name */
-	u8 file_type;                  /* REGULAR_FILE || DIRECTORY_FILE || SLINK_FILE */
+	u16 flag;					   /* acl and file type */
+//	u8 file_type;                  /* REGULAR_FILE || DIRECTORY_FILE || SLINK_FILE */
 	u32 uid;
 	u32 gid;
-	u32 acl;					   /* access control list */
+//	u32 acl;					   /* access control list */
 	struct NS_NODE * parent;	   /* parent */
 	struct NS_NODE ** child;       /* child array */
 	u32 how_many_children;         /* how many children */
@@ -267,8 +309,12 @@ cont:
 		}
 	}
 op_over:
-	*index = i;
-	*nsnode = lkup_node;
+	if(index != NULL){
+		*index = i;
+	}
+	if(nsnode != (ns_node **)0){
+		*nsnode = lkup_node;
+	}
 	return ret;
 }
 /*-------------------------------------split------------------------------------*/
@@ -529,11 +575,6 @@ u32 user_login()
 	i = strlen(user_input_buf);
 	user_input_buf[i-1] = '\0';
 	r = get_user_info_by_name(user_input_buf,user_info_buf,USER_INFO_BUFSZ);
-	///*test*/
-	//for(p=user_info_buf;*p!='\0';p++){
-	//	printf("%c  %d\n",*p,*p);
-	//}
-	/*test over*/
 	if(r != 0){
 		ret = 1;
 		fprintf(stderr,"user not exist!\n");
@@ -583,6 +624,11 @@ u32 user_login()
 	}
 op_over:
 	return ret;
+}
+/*-------------------------------------split------------------------------------*/
+void cfs_shell()
+{
+	/* called after user login */
 }
 /*-------------------------------------split------------------------------------*/
 void print_ns_node(ns_node * node)
