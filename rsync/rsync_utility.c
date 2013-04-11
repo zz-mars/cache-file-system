@@ -9,7 +9,7 @@ void cal_md5(u8 * ptr,u32 len,u8 md5[])
 	MD5_Final(md5,&ctx);
 	return;
 }
-u32 rolling_chcksum_akl(u8 * const ptr,u32 * const aklz,u32 * const bklz,u32 blk_len)
+u32 cal_rollin_cksm(u8 * const ptr,u32 * const aklz,u32 * const bklz,u32 blk_len)
 {
 	u64 r,akl = 0,bkl = 0;
 	u32 p,i,skl;
@@ -26,7 +26,7 @@ u32 rolling_chcksum_akl(u8 * const ptr,u32 * const aklz,u32 * const bklz,u32 blk
 	skl = akl + bkl*ROLLING_CHKSUM_M;
 	return skl;
 }
-u32 rolling_chcksum_akl_plus_1(u8 * p,u32 * const akl,u32 * const bkl,u32 blk_len)
+u32 cal_rollin_cksm_plus_1(u8 * p,u32 * const akl,u32 * const bkl,u32 blk_len)
 {
 	u8 o = *(p-1);
 	u8 n = *(p+blk_len-1);

@@ -57,22 +57,18 @@ static void * do_delta_blk(void * arg)
 thRead_exit:
 	pthread_exit(NULL);
 }
+static u8 buf[BUFSIZ];
 int main(int argc,char * argv[])
 {
-	pthread_t thid;
-	thread_arg arg;
-	int fd,n;
-	u8 buf[CBUFSZ];
-	struct stat cstat;
 	chunk_file_header cfh;
-	server_file_header sfh;
 	chunk_block_entry cblk;
-	u32 block_sz;
-	u64 block_nr;
-	u64 c_off,file_sz,i,remaining_bytes;
-	u64 srv_file_sz;
-	u32 c_len;
+	delta_file_header dfh;
+	delta_block_entry dblk;
 	u8 * file_name;
+	struct stat fstt;
+	u64 file_sz;
+	u64 block_nr;
+	u32 block_sz = BLK_SZ;
     int connfd,clen;
     struct sockaddr_in addr;
 	if(argc != 2){
@@ -85,19 +81,17 @@ int main(int argc,char * argv[])
 		perror("open");
 		exit(1);
 	}
-	fstat(fd,&cstat);
-	file_sz = cstat.st_size;
-	bzero(&cfh,CHUNK_FILE_HEAD_SZ);
+	fstat(fd,&fstt);
+	file_sz = fstt.st_size;
 	block_sz = BLK_SZ;
 	block_nr = file_sz/BLK_SZ;
 	if(file_sz%BLK_SZ != 0){
 		block_nr += 1;
 	}
-	cfh.file_sz = file_sz;
 	cfh.block_sz = block_sz;
-	strncpy(cfh.fn,file_name,FILE_NAME_LEN);
+	cfh.block_nr = block_nr;
+	strncpy(cfh.fn,file_name,strlen(file_name));
 	printf("file_to_sync	# %s\n",cfh.fn);
-	printf("file_sz			# %d\n",cfh.file_sz);
 	printf("block_sz		# %d\n",cfh.block_sz);
 	printf("block_nr		# %d\n",block_nr);
     bzero(&addr,sizeof(addr));
