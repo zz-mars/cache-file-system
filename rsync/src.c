@@ -258,23 +258,29 @@ int main()
 		if(errno == ENOENT){
 			/* when file not exist,goto send_delta_file_header
 			 * need special disposition */
-			rplh.err = E_FILE_NOT_EXIST;
+			/* tell dst to delete file */
+			rplh.err = E_SRC_FILE_NOT_EXIST;
+			goto SEND_RPL_TO_CFH;
 		}
 		goto over1;
-	}
-	/* send reply to chunk file header */
-	if(Write(connfd,&rplh,RPL_TO_CHUNK_FILE_HEADER_SZ) != RPL_TO_CHUNK_FILE_HEADER_SZ){
-		perror("write rpl to chunk file header");
-		goto over2;
-	}
-	if(rplh.err == E_FILE_NOT_EXIST){
-		goto over2;
 	}
 	if(fstat(fd,&file_stat) != 0){
 		perror("fstat");
 		goto over2;
 	}
 	file_sz = file_stat.st_size;
+	if(file_sz == 0){
+		rplh.err = E_SRC_FILE_NO_BLK;
+	}
+SEND_RPL_TO_CFH:
+	/* send reply to chunk file header */
+	if(Write(connfd,&rplh,RPL_TO_CHUNK_FILE_HEADER_SZ) != RPL_TO_CHUNK_FILE_HEADER_SZ){
+		perror("write rpl to chunk file header");
+		goto over2;
+	}
+	if(rplh.err != E_OK){
+		goto over2;
+	}
 	/* dst file has 0 block */
 	if(chunk_block_nr == 0){
 		/* need special disposition */
@@ -287,6 +293,7 @@ int main()
 		perror("malloc for chunk_block_entry_array");
 		goto over2;
 	}
+	/* receive chunk block entry */
 	for(i = 0;i < chunk_block_nr;i++){
 		cblk_p = cblk_array + i;
 		if(Read(connfd,cblk_p,CHUNK_BLOCK_ENTRY_SZ) != CHUNK_BLOCK_ENTRY_SZ){

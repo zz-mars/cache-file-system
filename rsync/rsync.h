@@ -4,8 +4,8 @@
 #define FILE_NAME_LEN	128
 
 #define E_OK				00
-#define E_FILE_NOT_EXIST	01
-#define E_NO_BLK			02
+#define E_SRC_FILE_NOT_EXIST	01
+#define E_SRC_FILE_NO_BLK		02
 
 #define BLOCK_SZ		32
 
