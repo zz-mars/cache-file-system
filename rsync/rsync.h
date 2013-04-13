@@ -51,5 +51,5 @@ extern ssize_t Read(int fd,void * buf,size_t count);
 extern ssize_t Write(int fd,void * buf,size_t count);
 extern void cal_md5(u8 * ptr,u32 len,u8 md5[]);
 extern u32 cal_rollin_cksm(u8 * const ptr,u32 * const aklz,u32 * const bklz,u32 blk_len);
-extern u32 cal_rollin_cksm_plus_1(u8 * p,u32 * const akl,u32 * const bkl,u32 blk_len);
+extern u32 cal_rollin_cksm_plus_1(u8 o,u8 n,u32 * const akl,u32 * const bkl,u32 blk_len);
 #endif

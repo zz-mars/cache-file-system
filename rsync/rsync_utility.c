@@ -21,15 +21,17 @@ u32 cal_rollin_cksm(u8 * const ptr,u32 * const aklz,u32 * const bklz,u32 blk_len
 	}
 	akl %= ROLLING_CHKSUM_M;
 	bkl %= ROLLING_CHKSUM_M;
-	*aklz = akl;
-	*bklz = bkl;
+	if(aklz != NULL){
+		*aklz = akl;
+	}
+	if(bklz != NULL){
+		*bklz = bkl;
+	}
 	skl = akl + bkl*ROLLING_CHKSUM_M;
 	return skl;
 }
-u32 cal_rollin_cksm_plus_1(u8 * p,u32 * const akl,u32 * const bkl,u32 blk_len)
+u32 cal_rollin_cksm_plus_1(u8 o,u8 n,u32 * const akl,u32 * const bkl,u32 blk_len)
 {
-	u8 o = *(p-1);
-	u8 n = *(p+blk_len-1);
 	u32 skl;
 	u32 new_akl = *akl;
 	u32 new_bkl = *bkl;

@@ -218,6 +218,7 @@ int main()
 	u8 * p;
 	u32 akl,bkl,skl;
 	u8 dup_found;
+	u8 oc,nc;
 	/* file to sync */
 	int fd;
 	struct stat file_stat;
@@ -382,20 +383,18 @@ SEND_RPL_TO_CFH:
 		/* else p is the pointer of the block 
 		 * which is going to be checked 
 		 * and the number of bytes is 'n' */
-		if(n < dup_blk_len || dup_found == DUP_FOUND){
+		if(dup_found == DUP_FOUND){
 			/* start a new search or
 			 * current block is the last block of src_file */
 			printf("calculate the rolling_checksum with cal_rollin_cksm \n");
 			akl = 0,bkl = 0,skl = 0;
 			skl = cal_rollin_cksm(p,&akl,&bkl,n);
-		}else if(dup_found == DUP_NOT_FOUND && n == dup_blk_len){
+		}else if(dup_found == DUP_NOT_FOUND){
 			/* the only case that rolling_checksum is calculated with last value */
 			printf("calculate the rolling_checksum with cal_rollin_cksm_plus_1 \n");
-			skl = cal_rollin_cksm_plus_1(p,&akl,&bkl,n);
-		}else{
-			/* error situation */
-			fprintf(stderr,"calculate rolling_checksum error!\n");
-			goto over3;
+			oc = *(p - 1);
+			nc = (n < dup_blk_len?0:(*(p + n - 1)));
+			skl = cal_rollin_cksm_plus_1(oc,nc,&akl,&bkl,dup_blk_len);
 		}
 		dup_found = DUP_NOT_FOUND;
 		rolling_chksm = skl;

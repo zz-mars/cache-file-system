@@ -1,74 +1,32 @@
 #include"glob.h"
 #include"rsync.h"
 #define CBUFSZ	(BLK_SZ+DELTA_BLOCK_ENTRY_SZ+1)
-static void * do_delta_blk(void * arg)
-{
-	u64 d_off,blk_nr = ((thread_arg*)arg)->blk_nr;
-	u32 d_old_len,d_new_len;
-	u8 d_embeded;
-	u8 buf[CBUFSZ];
-	int blk_counter = 0;
-	int connfd = ((thread_arg *)arg)->connfd;
-	int fd = ((thread_arg *)arg)->fd;
-	int n;
-	u64 i;
-	delta_block_entry dblk;
-	for(i = 0;i<blk_nr;i++){
-		if((n = Read(connfd,&dblk,DELTA_BLOCK_ENTRY_SZ)) != DELTA_BLOCK_ENTRY_SZ){
-			perror("Read delta_block_entry");
-			exit(1);
-		}
-		printf("---------------------Reading delta block	#%d\n",i);
-		d_embeded = dblk.embeded;
-		d_off = dblk.offset;
-		d_old_len = dblk.old_len;
-		d_new_len = dblk.new_len;
-		blk_counter = d_off/BLK_SZ;
-		if(d_off%BLK_SZ != 0){
-			fprintf(stderr,"delta_blk offset isnot aligned to BLK_SZ!\n");
-			goto thRead_exit;
-		}
-		printf("delta_blk_old_len #%d\n",d_old_len);
-		printf("delta_blk_new_len #%d\n",d_new_len);
-		printf("delta_blk_offset  #%d\n",d_off);
-		if(d_embeded == BLK_SAME){
-			/* no need to sync ,just continue */
-			printf("delta_blk_emb #BLK_SAME\n");
-			continue;
-		}
-		printf("delta_blk_emb #BLK_DIFF\n");
-		/* need overWrite */
-		bzero(buf,CBUFSZ);
-		if((n = Read(connfd,buf,d_new_len)) != d_new_len){
-			/* something is wrong */
-			perror("Read from socket");
-			goto thRead_exit;
-		}
-		*(buf + n) = '\0';
-		printf("delta content \n%s\n",buf);
-		lseek(fd,d_off,SEEK_SET);
-		if((n = Write(fd,buf,d_new_len)) != d_new_len){
-			/* something is wrong */
-			perror("Write to file");
-			goto thRead_exit;
-		}
-		printf("--------------------------------------delta blk #%d ok!\n",i);
-	}
-thRead_exit:
-	pthread_exit(NULL);
-}
+#define NEW_FILE_SUFFIX	".rep"
 static u8 buf[BUFSIZ];
 int main(int argc,char * argv[])
 {
 	chunk_file_header cfh;
+	reply_to_chunk_file_header rplcfh;
 	chunk_block_entry cblk;
+	u64 c_off,remaining_bytes;
+	u32 c_len;
 	delta_file_header dfh;
+	/* delta block entry */
+	u32 dblk_nr;
 	delta_block_entry dblk;
+	u64 d_off;
+	u32 d_len;
+	u8 d_dup_flag;
+	u64 d_dst_block_no;
 	u8 * file_name;
+	u8 n_file_name[FILE_NAME_LEN];
+	u32 file_name_len;
+	u32 i,n;
+	int fd,n_fd;
 	struct stat fstt;
 	u64 file_sz;
 	u64 block_nr;
-	u32 block_sz = BLK_SZ;
+	u32 block_sz;
     int connfd,clen;
     struct sockaddr_in addr;
 	if(argc != 2){
@@ -83,9 +41,9 @@ int main(int argc,char * argv[])
 	}
 	fstat(fd,&fstt);
 	file_sz = fstt.st_size;
-	block_sz = BLK_SZ;
-	block_nr = file_sz/BLK_SZ;
-	if(file_sz%BLK_SZ != 0){
+	block_sz = BLOCK_SZ;
+	block_nr = file_sz/BLOCK_SZ;
+	if(file_sz%BLOCK_SZ != 0){
 		block_nr += 1;
 	}
 	cfh.block_sz = block_sz;
@@ -113,59 +71,38 @@ int main(int argc,char * argv[])
 		goto over1;
 	}
 	printf("------------------------ chunk file header send ok!-----------------\n");
-	if((n = Read(connfd,&sfh,SERVER_FILE_HEADER_SZ)) != SERVER_FILE_HEADER_SZ){
-		perror("Read server_file_header");
+	/* ------------- receive rpl_to_chunk_file_header ------------- */
+	if((n = Read(connfd,&rplcfh,RPL_TO_CHUNK_FILE_HEADER_SZ)) != RPL_TO_CHUNK_FILE_HEADER_SZ){
+		perror("Read reply_to_chunk_file_header");
 		goto over1;
 	}
-	printf("------------------------ server file header receive ok!-------------\n");
-	if(sfh.err != E_OK){
-		printf("server file header says some error happens!\n");
-		goto over1;
-	}
-	srv_file_sz = sfh.file_sz;
-	printf("server file size		# %d\n",srv_file_sz);
-	if(srv_file_sz < file_sz){
-		printf("client file too big,need trunc\n");
-		if(ftruncate(fd,srv_file_sz) != 0){
-			perror("ftruncate");
+	printf("------------ reply_to_chunk_file_header receive ok! ---------\n");
+	switch(rplcfh.err){
+		case E_SRC_FILE_NOT_EXIST:
+			printf("src file not exist,rm file in dst!\n");
+			close(fd);
+			if(unlink(file_name) != 0){
+				perror("unlink file");
+				exit(1);
+			}
 			goto over1;
-		}
-		fstat(fd,&cstat);
-		file_sz = cstat.st_size;
-		printf("after truncate file sz --- %d\n",file_sz);
-	}else{
-		printf("client file is smller than server file!,no need to truncate!\n");
+		case E_SRC_FILE_NO_BLK:
+			printf("src file no blk,truncate file in dst!\n");
+			if(ftruncate(fd,0) != 0){
+				perror("ftruncate dst file");
+				exit(1);
+			}
+			goto over1;
+		case E_OK:
+			break;
 	}
-	block_nr = srv_file_sz/BLK_SZ;
-	if(srv_file_sz%BLK_SZ != 0){
-		block_nr += 1;
-	}
-	printf("block number in server # %d\n",block_nr);
-	printf("client send chunk block according this block_number,reguardless of the real blk_number it has\n");
-	/*********************************************************************/
-	printf("now create a new thRead to receive delta_block!\n");
-	arg.connfd = connfd;
-	arg.fd = fd;
-	arg.blk_nr = block_nr;
-	if(pthread_create(&thid,NULL,do_delta_blk,(void*)&arg) != 0){
-		perror("pthread_create");
-		goto over1;
-	}
+	/* send chunk_block_entry */
 	for(i = 0;i < block_nr;i++){
 		printf("-------------------chunk_blk_entry		#%d\n",i);
 		bzero(&cblk,CHUNK_BLOCK_ENTRY_SZ);
 		c_off = i*block_sz;
-		cblk.offset = c_off;
-		printf("block offset		#%d\n",c_off);
-		if(file_sz <= c_off){
-			printf("while client file sz #%d\n",file_sz);
-			printf("out of boundry,send chunk_blk_entry with len = 0\n");
-			c_len = 0;
-			cblk.len = 0;
-			goto send_chunk_blk_entry;
-		}
+		cblk.block_no = i;
 		remaining_bytes = file_sz - c_off;
-		printf("client remaining_bytes -- %d\n",remaining_bytes);
 		if(remaining_bytes >= block_sz){
 			printf("remaining_bytes is not less than block_sz\n");
 			c_len = block_sz;
@@ -173,30 +110,73 @@ int main(int argc,char * argv[])
 			printf("remaining_bytes is less than block_sz\n");
 			c_len = remaining_bytes;
 		}
-		cblk.len = c_len;
-		bzero(buf,CBUFSZ);
+		cblk.block_len = c_len;
+		bzero(buf,BUFSIZ);
 		lseek(fd,c_off,SEEK_SET);
 		if((n = Read(fd,buf,c_len)) != c_len){
 			perror("client Read file");
 			fprintf(stderr,"%d bytes need but only %d bytes Read!\n",c_len,n);
 			goto over1;
 		}
-		*(buf + n) = '\0';
-		printf("content to calculate MD5 :\n%s\n",buf);
+		if(c_len < block_sz){
+			bzero(buf+n,block_sz - c_len);
+		}
+		cblk.rolling_chksm = cal_rollin_cksm(buf,NULL,NULL,block_sz);
 		cal_md5(buf,c_len,cblk.md5);
-send_chunk_blk_entry:
 		if((n = Write(connfd,&cblk,CHUNK_BLOCK_ENTRY_SZ)) != CHUNK_BLOCK_ENTRY_SZ){
 			perror("client Write chunk_block_entry");
 			goto over1;
 		}
-		printf("chunk_block_entry		#%d sent successfully!\n",i);
+	}
+	if(Read(connfd,&dfh,DELTA_FILE_HEADER_SZ) != DELTA_FILE_HEADER_SZ){
+		perror("read delta_file_header");
+		goto over1;
+	}
+	dblk_nr = dfh.block_nr;
+	bzero(n_file_name,FILE_NAME_LEN);
+	file_name_len = strlen(file_name);
+	strncpy(n_file_name,file_name,file_name_len);
+	strncpy(n_file_name+file_name_len,NEW_FILE_SUFFIX,strlen(NEW_FILE_SUFFIX));
+	n_fd = open(n_file_name,O_CREAT | O_WRONLY,0660);
+	if(n_fd < 0){
+		goto over1;
+	}
+	for(i = 0;i <  dblk_nr;i++){
+		if(Read(connfd,&dblk,DELTA_BLOCK_ENTRY_SZ) != DELTA_BLOCK_ENTRY_SZ){
+			perror("Read delta_block_entry");
+			exit(1);
+		}
+		printf("---------------------Reading delta block	#%d\n",i);
+		d_dup_flag = dblk.dup_flag;
+		d_off = dblk.offset;
+		d_len = dblk.len;
+		printf("delta_blk_off #%d\n",d_off);
+		printf("delta_blk_len #%d\n",d_len);
+		if(d_dup_flag == DUP_BLOCK){
+			d_dst_block_no = dblk.dst_block_no;
+			printf("corresponding dst_block_no		#%d\n",d_dst_block_no);
+			lseek(fd,d_dst_block_no*block_sz,SEEK_SET);
+			if(Read(fd,buf,d_len) != d_len){
+				perror("read data from dst file");
+				goto over2;
+			}
+		}else{
+			printf("data is in the following!\n");
+			if(Read(connfd,buf,d_len) != d_len){
+				perror("read data from socket");
+				goto over2;
+			}
+		}
+		lseek(n_fd,d_off,SEEK_SET);
+		if(Write(n_fd,buf,d_len) != d_len){
+			perror("write to new file");
+			goto over2;
+		}
 	}
 over2:
-	if(pthread_join(thid,NULL) != 0){
-		perror("pthread join");
-	}
+	close(n_fd);
 over1:
-	close(fd);
 	close(connfd);
+	close(fd);
     return 0;
 }
