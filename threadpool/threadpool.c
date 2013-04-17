@@ -179,12 +179,13 @@ void threadrun(void * arg)
 	return;
 }
 #define TASK_NUM	10000
+#define THREAD_NUM	5
 int main()
 {
 	int i;
 	int tmp[TASK_NUM];
 	thread_pool * tp = (thread_pool*)malloc(sizeof(thread_pool));
-	thread_pool_init(tp,3);
+	thread_pool_init(tp,THREAD_NUM);
 	for(i = 0;i < TASK_NUM;i++){
 		tmp[i] = i;
 #ifdef DBG_MSG
