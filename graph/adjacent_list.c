@@ -5,6 +5,10 @@
 #define COLOR_BLACK	'B'
 #define V_NODE_N	20
 #define IS_BETWEEN(i,x,y)	((i) >= (x) && (i) <= (y))
+typedef struct _time_stamp{
+	int d;
+	int f;
+}time_stamp;
 typedef struct __vnode{
 	int n;				/*node number*/
 	char c;				/*color*/
@@ -12,6 +16,7 @@ typedef struct __vnode{
 	struct __vnode * p;	/*parent,used when create a breadth_first_tree*/
 	struct __vnode * first_child;
 	struct __vnode * next_sibling;
+	time_stamp tstp;	/* for depth_first search */
 }vnode;
 typedef struct _adjac_node{
 	vnode * v;
@@ -226,6 +231,54 @@ static void print_bfst(void)
 	}
 	return;
 }
+/********************* depth first search ***********************/
+/* useful fields in vnode for depth_first search:
+ * 1) timestamp
+ * 2) parent
+ * 3) color */
+static int timestamp;
+static void dfs_visit(vnode * u)
+{
+	adjnode * adjn;
+	u->tstp.d = (timestamp += 1);
+	u->c = COLOR_GREY;
+	for(adjn=adj[u->n-1].n;adjn!=NULL;adjn=adjn->n){
+		if(adjn->v->c == COLOR_WHITE){
+			adjn->v->p = u;
+			dfs_visit(adjn->v);
+		}
+	}
+	u->c = COLOR_BLACK;
+	u->tstp.f = (++timestamp);
+	return;
+}
+static void depth_first_search(void)
+{
+	int i;
+	for(i=0;i<v_node_n;i++){
+		v[i].c = COLOR_WHITE;
+		v[i].p = NULL;
+	}
+	timestamp = 0;
+	for(i=0;i<v_node_n;i++){
+		if(v[i].c == COLOR_WHITE){
+			dfs_visit(&v[i]);
+		}
+	}
+	return;
+}
+static void print_v(void)
+{
+	int i;
+	for(i=0;i<v_node_n;i++){
+		printf("node #%d : c #%c tstp.d/v #%2d:%2d ",v[i].n,v[i].c,v[i].tstp.d,v[i].tstp.f);
+		if(v[i].p){
+			printf("p #%d",v[i].p->n);
+		}
+		printf("\n");
+	}
+	return;
+}
 int main(int argc,char *argv[])
 {
 	char * input_file;
@@ -239,8 +292,10 @@ int main(int argc,char *argv[])
 	dup2(fd,STDIN_FILENO);
 	creat_graph();
 	print_adjlist();
-	breadth_first_search();
-	print_bfst();
+//	breadth_first_search();
+//	print_bfst();
+	depth_first_search();
+	print_v();
 	destory_graph();
 	dup2(stdin_dup,STDIN_FILENO);
 	close(fd);
