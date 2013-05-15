@@ -104,6 +104,17 @@ static void add_fn_to_list(file_node * fn)
 	return;
 }
 /* for debug */
+static void prtion(IO_Node * ion)
+{
+	printf("---ion s---\n");
+	printf("ion->off\t#%lu\n",ion->offset);
+	printf("ion->len\t#%u\n",ion->length);
+	printf("ion->next\t#%s\n",ion->next);
+	printf("ion->prev\t#%s\n",ion->pre);
+	printf("ion->time\t#%u\n",ion->modification_time);
+	printf("---ion e---\n");
+	return;
+}
 static void print_ion(char * path)
 {
     Meta_Data md;
@@ -133,11 +144,7 @@ static void print_ion(char * path)
 			}
 			dlen = ion.length;
 			printf("ion.key#%s\n",p);
-			printf("ion.offset#%lu\n",ion.offset);
-			printf("ion.length#%u\n",dlen);
-			printf("ion.next#%s\n",ion.next);
-			printf("ion.pre#%s\n",ion.pre);
-			printf("ion.time#%d\n",ion.modification_time);
+			prtion(&ion);
 			if(dlen > 0){
 				io_data = (char*)malloc(dlen+2);
 				bzero(io_data,dlen+1);
@@ -174,17 +181,6 @@ static void print_fnl_ion(void)
 #define REQ_OFF(req)	((req)->offset)
 #define REQ_LEN(req)	((req)->length)
 #define REQ_TIME(req)	((req)->m_atime)
-static void prtion(IO_Node * ion)
-{
-	printf("---ion s---\n");
-	printf("ion->off#%lu\n",ion->offset);
-	printf("ion->len#%u\n",ion->length);
-	printf("ion->next#%s\n",ion->next);
-	printf("ion->prev#%s\n",ion->pre);
-	printf("ion->time#%u\n",ion->modification_time);
-	printf("---ion e---\n");
-	return;
-}
 static int que_out_modify_md(q_out_req *req)
 {
 	/* to update :
@@ -204,7 +200,7 @@ static int que_out_modify_md(q_out_req *req)
 		ion.modification_time = REQ_TIME(req);
 		ion.offset = REQ_OFF(req);
 		ion.length = REQ_LEN(req);
-#ifdef DBGMSG
+#ifdef DBGMSG1
 		printf("before update md ion iontmp\n");
 		prtion(&ion);
 #endif
@@ -218,7 +214,7 @@ static int que_out_modify_md(q_out_req *req)
 			strncpy(md.io_node_head,REQ_IONK(req),len);
 			bzero(md.io_node_tail,MAX_ION_PATH);
 			strncpy(md.io_node_tail,REQ_IONK(req),len);
-#ifdef DBGMSG
+#ifdef DBGMSG1
 			printf("md.io_node_head&tail are assigned with new value!\n");
 			printf("md.io_node_head #%s\n",md.io_node_head);
 			printf("md.io_node_tail #%s\n",md.io_node_tail);
@@ -233,7 +229,7 @@ static int que_out_modify_md(q_out_req *req)
 				rt = 2;
 				goto ret;
 			}
-#ifdef DBGMSG
+#ifdef DBGMSG1
 			printf("current tail io node\n");
 			prtion(&iontmp);
 #endif
@@ -244,7 +240,7 @@ static int que_out_modify_md(q_out_req *req)
 				rt = 3;
 				goto ret;
 			}
-#ifdef DBGMSG
+#ifdef DBGMSG1
 			printf("tail node updated to :\n");
 			prtion(&iontmp);
 			printf("io_node_tail is put back!\n");
@@ -272,7 +268,7 @@ static int que_out_modify_md(q_out_req *req)
 			rt = 5;
 			goto ret;
 		}
-#ifdef DBGMSG
+#ifdef DBGMSG1
 		printf("ion right when it is put back!\n");
 		prtion(&ion);
 		printf("ion with key #%s put\n",md.io_node_tail);
@@ -312,6 +308,18 @@ static int que_out_modify_file_node_list(char * file_name)
 ret:
 	return rt;
 }
+static void prtreq(q_out_req * req)
+{
+	printf("----------- req start ------------\n");
+	printf("file to modify\t#%s\n",req->path);
+	printf("io_node key\t#%s\n",req->ion_key);
+	printf("io_time\t\t#%d\n",req->m_atime);
+	printf("io_type\t\t#%s\n",(req->io_type==IO_READ?"READ":"WRITE"));
+	printf("io_offset\t#%d\n",req->offset);
+	printf("io_length\t#%d\n",req->length);
+	printf("------------ req end -------------\n");
+	return;
+}
 static void* que_out_serv(void*arg)
 {
 	/* 1) receive q_out request 
@@ -335,7 +343,7 @@ static void* que_out_serv(void*arg)
         bzero(ip_str,INET_ADDRSTRLEN);
         inet_ntop(AF_INET,(void*)&cli_addr.sin_addr,ip_str,INET_ADDRSTRLEN);
         port = ntohs(cli_addr.sin_port);
-        printf("Que_out request from %s,port %d\n",ip_str,port);
+        printf("--------------- que_out request from ----# %s : %d\n",ip_str,port);
 
 		bzero(&req,QOUT_REQ_SZ);
         if(read(connfd,&req,QOUT_REQ_SZ) != QOUT_REQ_SZ){
@@ -345,12 +353,7 @@ static void* que_out_serv(void*arg)
 		/* modify md in TC */
 #ifdef DBGMSG
 		printf("-------------- q_out received a new request ----------------\n");
-		printf("file to modify\t#%s\n",req.path);
-		printf("io_node key \t#%s\n",req.ion_key);
-		printf("io_time\t#%d\n",req.m_atime);
-		printf("io_type\t#%s\n",(req.io_type==IO_READ?"READ":"WRITE"));
-		printf("io_offset\t#%d\n",req.offset);
-		printf("io_length\t#%d\n",req.length);
+		prtreq(&req);
 #endif
 #ifdef DBGMSG
 		printf("before modify meta data and io_node list...\n");
@@ -399,14 +402,14 @@ static void flush2data_center(void)
 	IO_Node ion;
 	file_node * fn;
 	char data_path[MAX_PATH];
-	/* go to sleep first for debug */
-	printf("flush go to sleep\n");
-	pause();
+//	/* go to sleep first for debug */
+//	printf("flush go to sleep\n");
+//	pause();
 	while(1){
-		/* first of all,get a dirty file from the list */
-#ifdef DBGMSG
-		printf("flush lock file_node_list_mutex\n");
-#endif
+		/* 1) in this while loop,we first get a file_node from file_node_list,
+		 *    which is always the node pointed to by 'update'.
+		 * 2) Then we flush the dirty data of this file to the data center represented by this file_node.
+		 * */
 		pthread_mutex_lock(&file_node_list_mutex);
 		while(FILE_NODE_LIST_NULL || (fn = update) == NULL){
 			/* go to sleep if file node list is null or update is null */
@@ -418,42 +421,44 @@ static void flush2data_center(void)
 			printf("flush awakened! now retest the condition!\n");
 #endif
 		}
-#ifdef DBGMSG
-		printf("now flush file #%s to data center!\n",fn->file_name);
-		printf("update is assigned to new value!\n");
-#endif
 		/* update points to the prev node */
 		update = prev_node_of_me(update);
 		pthread_mutex_unlock(&file_node_list_mutex);
+#ifdef DBGMSG
+		printf("now flush file #%s to data center!\n",fn->file_name);
+#endif
 		pthread_mutex_lock(&md_mutex);
 		if(md_get(fn->file_name,&md) != 0 || md.dirty == MD_CLEAN){
 			/* skip this file for reasons below:
 			 * 1) this file has been deleted
 			 * 2) this file is clean
 			 */
-#ifdef DBGMSG
-			printf("flush : md_get fail or file is clean!\n");
-#endif
 			goto next_loop;
 		}
+		if(!(strlen(md.io_node_head) > 0 && strlen(md.io_node_tail) > 0 && md.dirty == MD_DIRTY)){
+			/* when the file is dirty,we expect this file 
+			 *	1) io_node_head != NULL
+			 *	2) io_node_tail != NULL
+			 *	3) md.dirty == MD_DIRTY
+			 *	*/
+			fprintf(stderr,"something is wrong with the state of this file!\n");
+			goto next_loop;
+		}
+		/* here we got the only accepted case to update the data center file */
 		/* everything is just ok for updating file
 		 * update file represented by 'fn' */
 		get_data_path(fn->file_name,data_path);
 		fd = 0;
 		if((fd = open(data_path,O_WRONLY)) < 0){
-#ifdef DBGMSG
-			printf("flush : open data center file fail!maybe deleted!\n");
-#endif
+			perror("open data center file");
 			if(errno == ENOENT){
 				/* deleted */
-#ifdef DBGMSG
-				printf("flush : open data fail,no entry found!\n");
-#endif
+				fprintf(stderr,"file %s has been deleted!\n",fn->file_name);
 			}
 			goto next_loop;
 		}
 		ion_len = strlen(md.io_node_head);
-		while(ion_len != 0){
+		while(ion_len > 0){
 #ifdef DBGMSG
 			printf("flush : now get io_node with key #%s\n",md.io_node_head);
 #endif
@@ -462,51 +467,53 @@ static void flush2data_center(void)
 			}
 #ifdef DBGMSG
 			printf("ion_get success!\n");
-			printf("io_node->prev\t#%s\n",ion.pre);
-			printf("io_node->next\t#%s\n",ion.next);
-			printf("io_node->offset\t#%d\n",ion.offset);
-			printf("io_node->length\t#%d\n",ion.length);
-			printf("ion->modification_time\t#%d\n",ion.modification_time);
+			prtion(&ion);
 			printf("md->stat_info.st_mtime\t#%d\n",md.stat_info.st_mtime);
 #endif
 
-			io_data = malloc(ion.length);
+			if(ion.length > 0){
+				io_data = malloc(ion.length+2);
+				bzero(io_data,ion.length+2);
+				if(iod_get(md.io_node_head,io_data,ion.length) != 0){
+					fprintf(stderr,"io_data get fail,maybe this file has been deleted!\n");
+					free(io_data);
+					goto next_loop;
+				}
 #ifdef DBGMSG
-			printf("now get the io_data...\n");
+				printf("io_data #%s\n",(char*)io_data);
 #endif
-			if(iod_get(md.io_node_head,io_data,ion.length) != 0){
-				fprintf(stderr,"io_data get fail,maybe this file has been deleted!\n");
+				lseek(fd,ion.offset,SEEK_SET);
+				if(write(fd,io_data,ion.length) != ion.length){
+					perror("write to dtc file");
+					free(io_data);
+					goto next_loop;
+				}
 				free(io_data);
-				goto next_loop;
-			}
 #ifdef DBGMSG
-			printf("io_data #%s\n",(char*)io_data);
+				printf("write data center file ok! now delete io_node and io_data\n");
 #endif
-			lseek(fd,ion.offset,SEEK_SET);
+				if(iod_out(md.io_node_head) != 0){
+					goto next_loop;
+				}
 #ifdef DBGMSG
-			printf("now write to data center file!\n");
+				printf("io_data deleted!\n");
 #endif
-			if(write(fd,io_data,ion.length) != ion.length){
-				perror("write to dtc file");
-				free(io_data);
-				goto next_loop;
-			}
-			free(io_data);
-#ifdef DBGMSG
-			printf("write ok! now delete io_node and io_data\n");
-#endif
-			if(iod_out(md.io_node_head) != 0){
-				goto next_loop;
 			}
 			if(ion_out(md.io_node_head) != 0){
 				goto next_loop;
 			}
-			strcpy(md.io_node_head,ion.next);
-			ion_len = strlen(md.io_node_head);
+#ifdef DBGMSG
+			printf("io_node deleted!\n");
+#endif
+			ion_len = strlen(ion.next);
+			if(ion_len == 0){
+				break;
+			}
+			bzero(md.io_node_head,MAX_ION_PATH);
+			strncpy(md.io_node_head,ion.next,ion_len);
 		}
 #ifdef DBGMSG
 		printf("update file ok! # %s\nnow clear io_node_head&tail,mark this file to be clean!\n",fn->file_name);
-		printf("put meta data back!\n");
 #endif
 		bzero(md.io_node_head,MAX_PATH);
 		bzero(md.io_node_tail,MAX_PATH);

@@ -226,7 +226,7 @@ int _WriteFile(int fd,u8* buf,u32 count,u64 offset)
 		io_c_d = IO_DATA;
 	}
 	while(*p == '/'){p++;}	/* eat '/' */
-	lseek(fd,offset,SEEK_END);
+	lseek(fd,offset,SEEK_SET);
 	rt = write(fd,buf,count);
 	time(&mt);
 	if(io_c_d == IO_CACHE){

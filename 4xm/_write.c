@@ -6,8 +6,7 @@ void main(int argc,char **argv)
     int fd;
     char *path;
     char *buf;
-    if(argc != 3)
-    {
+    if(argc != 3){
         printf("invalid argument!\n");
         exit(1);
     }
@@ -15,8 +14,7 @@ void main(int argc,char **argv)
     buf = argv[2];
     fd = _OpenFile(path,O_WRONLY);
     printf("writefile fd -- %d\n",fd);
-    if(fd != -1)
-    {
+    if(fd != -1){
         n = _WriteFile(fd,buf,strlen(buf),0);
         printf("%d byte(s) write\n",n);
         _CloseFile(fd);
