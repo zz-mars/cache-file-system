@@ -8,18 +8,18 @@ typedef struct _file_node{
 	struct _file_node * prev;
 }file_node;
 #define FN_SZ	sizeof(file_node)
-#define IS_FILE_NODE_LIST_HEAD(node)	((node) == &file_node_list_head)
-#define FILE_NODE_LIST_NULL				(file_node_list_head.prev == &file_node_list_head && file_node_list_head.next == &file_node_list_head)
 static pthread_mutex_t file_node_list_mutex = PTHREAD_MUTEX_INITIALIZER;	/* protect file_node_list */
 static pthread_mutex_t md_mutex = PTHREAD_MUTEX_INITIALIZER;				/* protect meta data & io_node list */
 static pthread_cond_t file_node_list_cond = PTHREAD_COND_INITIALIZER;		/* for update dtc file */
-static file_node file_node_list_head;	/* head node */
+static file_node * file_node_list_head;	/* head node */
 static file_node * update;				/* now updating */
-#define for_each_fn_in_fnlist(fn)	for(fn=file_node_list_head.next;fn!=&file_node_list_head;fn=fn->next)
+#define for_each_fn_in_fnlist(fn)		for(fn=file_node_list_head;fn!=NULL;fn=fn->next)
+#define FILE_NODE_LIST_NULL				(file_node_list_head == NULL)
 static inline file_node * prev_node_of_me(file_node * fn)
 {
-	if(fn == NULL || fn->prev == &file_node_list_head)
+	if(fn == NULL ){
 		return NULL;
+	}
 	return fn->prev;
 }
 static void print_file_node_list(void)
@@ -38,8 +38,7 @@ static void print_file_node_list(void)
 static void init_fn_list(void)
 {
 	update = NULL;
-	file_node_list_head.prev = &file_node_list_head;
-	file_node_list_head.next = &file_node_list_head;
+	file_node_list_head = NULL;
 	return;
 }
 static file_node * new_file_node(char * file_name)
@@ -61,43 +60,47 @@ static void delete_file_node(file_node * fn)
 	free(fn);
 	return;
 }
-static file_node * get_fn(char * path)
+static file_node * get_fn(char * file_name)
 {
-	file_node *n;
-	int len = strlen(path);
-	for_each_fn_in_fnlist(n){
-		if(strncmp(path,n->file_name,len) == 0){
-			return n;
+	int len = strlen(file_name);
+	file_node ** fnp;
+	for(fnp=&file_node_list_head;*fnp;fnp=&((*fnp)->next)){
+		if(strncmp(file_name,(*fnp)->file_name,len) == 0){
+			break;
 		}
 	}
-	return NULL;
+	return *fnp;
 }
 static void rm_fn_from_list(file_node * fn)
 {
-	file_node *p,*n;
-	if(IS_FILE_NODE_LIST_HEAD(fn)){
-		fprintf(stderr,"cannot delete file node list head!\n");
-		return;
+	if(fn->prev){
+		fn->prev->next = fn->next;
+	}
+	if(fn->next){
+		fn->next->prev = fn->prev;
+	}
+	if(fn == file_node_list_head){
+		file_node_list_head = fn->next;
 	}
 	if(fn == update){
-		/* the updating node is removed */
-		update = prev_node_of_me(update);
+		update = fn->prev;
 	}
-	p = fn->prev;
-	n = fn->next;
-	p->next = n;
-	n->prev = p;
-	fn->prev = NULL;
-	fn->next = NULL;
 	return;
 }
-static void add_fn_to_list(file_node * fn)
+static void add2file_node_list_head(char * file_name)
 {
-	/* add to head of the list */
-	fn->next = file_node_list_head.next;
-	file_node_list_head.next->prev = fn;
-	fn->prev = &file_node_list_head;
-	file_node_list_head.next = fn;
+	file_node * fn = get_fn(file_name);
+	if(fn == NULL){
+		fn = new_file_node(file_name);
+	}
+	fn->prev = NULL;
+	if(FILE_NODE_LIST_NULL){
+		fn->next = NULL;
+	}else{
+		fn->next = file_node_list_head->next;
+		file_node_list_head->prev = fn;
+	}
+	file_node_list_head = fn;
 	if(update == NULL){
 		update = fn;
 	}
@@ -295,19 +298,6 @@ static int que_out_modify_md(q_out_req *req)
 ret:
     return rt;
 }
-static int que_out_modify_file_node_list(char * file_name)
-{
-	int rt = 0;
-	file_node * fn = get_fn(file_name);
-	if(fn == NULL){
-		fn = new_file_node(file_name);
-	}else{
-		rm_fn_from_list(fn);
-	}
-	add_fn_to_list(fn);
-ret:
-	return rt;
-}
 static void prtreq(q_out_req * req)
 {
 	printf("----------- req start ------------\n");
@@ -375,9 +365,7 @@ static void* que_out_serv(void*arg)
 #endif
 		/* modify file node list in memory */
         pthread_mutex_lock(&file_node_list_mutex);
-        if(que_out_modify_file_node_list(req.path) != 0){
-			fprintf(stderr,"modify file node list fail!\n");
-		}
+		add2file_node_list_head(req.path);
 #ifdef DBGMSG
 		printf("after modify file node list:\n");
 		print_file_node_list();
@@ -402,6 +390,7 @@ static void flush2data_center(void)
 	IO_Node ion;
 	file_node * fn;
 	char data_path[MAX_PATH];
+	char file_to_update[MAX_PATH];
 //	/* go to sleep first for debug */
 //	printf("flush go to sleep\n");
 //	pause();
@@ -427,6 +416,8 @@ static void flush2data_center(void)
 #ifdef DBGMSG
 		printf("now flush file #%s to data center!\n",fn->file_name);
 #endif
+		bzero(file_to_update,MAX_PATH);
+		strcpy(file_to_update,fn->file_name);
 		pthread_mutex_lock(&md_mutex);
 		if(md_get(fn->file_name,&md) != 0 || md.dirty == MD_CLEAN){
 			/* skip this file for reasons below:
@@ -474,7 +465,7 @@ static void flush2data_center(void)
 			if(ion.length > 0){
 				io_data = malloc(ion.length+2);
 				bzero(io_data,ion.length+2);
-				if(iod_get(md.io_node_head,io_data,ion.length) != 0){
+				if(iod_get(md.io_node_head,io_data) != 0){
 					fprintf(stderr,"io_data get fail,maybe this file has been deleted!\n");
 					free(io_data);
 					goto next_loop;
