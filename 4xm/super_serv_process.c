@@ -41,6 +41,10 @@ static void init_fn_list(void)
 	file_node_list_head = NULL;
 	return;
 }
+#define INIT_FILE_NODE(fn)	do{\
+	fn->prev = NULL;\
+	fn->next = NULL;\
+}while(0)
 static file_node * new_file_node(char * file_name)
 {
 	file_node * fn;
@@ -49,9 +53,7 @@ static file_node * new_file_node(char * file_name)
 		perror("file_node malloc");
 		return NULL;
 	}
-	bzero(fn,FN_SZ);
-	fn->next = NULL;
-	fn->prev = NULL;
+	INIT_FILE_NODE(fn);
 	strncpy(fn->file_name,file_name,len);
 	return fn;
 }
@@ -85,6 +87,7 @@ static void rm_fn_from_list(file_node * fn)
 	if(fn == update){
 		update = fn->prev;
 	}
+	INIT_FILE_NODE(fn);
 	return;
 }
 static void add2file_node_list_head(char * file_name)
