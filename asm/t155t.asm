@@ -1,0 +1,19 @@
+assume cs:code
+code segment
+    start:mov dx,1
+          mov ax,0ffffh
+          mov bx,0ffffh
+        s:sub bx,1
+          sbb ax,0
+          sbb dx,0
+          cmp bx,0
+          jne s
+          cmp ax,0
+          jne s
+          cmp dx,0
+          jne s
+
+          mov ax,4c00h
+          int 21h
+code ends
+end start

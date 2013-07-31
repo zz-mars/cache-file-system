@@ -1,0 +1,14 @@
+assume cs:codesgm,ds:data
+data segment
+        dw 'a','b'
+        db 'abcdefg'
+data ends
+codesgm segment
+  start:mov ax,0123H
+        mov bx,0456H
+        add ax,bx
+        add ax,ax
+        mov ax,4c00H
+        int 21h
+codesgm ends
+end start

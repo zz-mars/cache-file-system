@@ -1,7 +1,9 @@
 #include"glob.h"
 #include"rsync.h"
+
 static u8 buf[BUFSIZ];
 static u8 * ptr = buf + DELTA_BLOCK_ENTRY_SZ;
+
 int main()
 {
 	u64 blk_nr,blk_off;
