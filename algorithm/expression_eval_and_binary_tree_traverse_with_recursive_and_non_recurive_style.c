@@ -330,6 +330,46 @@ ret:
 
 #ifdef THREADING_TREE
 
+void postInThreading(tnode *t)
+{
+	if(!t) {
+		return;
+	}
+
+	postInThreading(l(t));
+	postInThreading(r(t));
+
+	if(!l(t)) {
+		l(t) = pre;
+		lf(t) = LR_FLAG_THREADING;
+	}
+
+	if(!r(pre)) {
+		r(pre) = t;
+		rf(pre) = LR_FLAG_THREADING;
+	}
+
+	pre = t;
+}
+
+tnode * postOrderThreading(tnode *r)
+{
+	tnode *head = newTnode('n');
+	l(head) = r;
+	r(head) = head;
+	pre = head;
+
+	postInThreading(r);
+
+	r(head) = pre;
+	rf(head) = LR_FLAG_THREADING;
+	if(!r(pre)) {
+		r(pre) = head;
+		rf(pre) = LR_FLAG_THREADING;
+	}
+	return head;
+}
+
 /* postOrderTraverseThread
  * @r : root of the tree,end of the traverse
  */
