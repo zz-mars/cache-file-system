@@ -5,26 +5,50 @@
 #include <string.h>
 #include "stack.h"
 
+#define THREADING_TREE
+
 typedef struct _tree_node{
 	char c;
 	struct _tree_node * p;
 	struct _tree_node * l;
 	struct _tree_node * r;
+
+#ifdef THREADING_TREE
+	char lf;
+	char rf;
+#endif
+
 }tnode;
+
+#ifdef THREADING_TREE
+enum {
+	LR_FLAG_CHILD = 0,
+	LR_FLAG_THREADING
+};
+static tnode head;
+#endif
 
 #define c(tn)	(tn)->c
 #define p(tn)	(tn)->p
 #define l(tn)	(tn)->l
 #define r(tn)	(tn)->r
 
-#define TNODE_LC	0
-#define TNODE_RC	1
+#ifdef THREADING_TREE
+#define lf(t)	(t)->lf
+#define rf(t)	(t)->rf
+#endif
+
+enum {
+	TNODE_LC = 0,
+	TNODE_RC
+};
 
 static tnode * root = NULL;
 
 static tnode *newTnode(char c)
 {
 	tnode *nt = (tnode*)malloc(sizeof(tnode));
+	memset(nt,0,sizeof(tnode));
 	if(!nt) {
 		perror("malloc new tnode");
 		return NULL;
@@ -50,8 +74,14 @@ static void addNewTnode(tnode *newNode,tnode *parent,char lr)
 
 	if(lr == TNODE_LC) {
 		l(parent) = newNode;
+#ifdef THREADING_TREE
+		lf(parent) = LR_FLAG_CHILD;
+#endif
 	} else if(lr == TNODE_RC) {
 		r(parent) = newNode;
+#ifdef THREADING_TREE
+		rf(parent) = LR_FLAG_CHILD;
+#endif
 	}
 
 	p(newNode) = parent;
@@ -90,6 +120,70 @@ static void inOrderTraverseNoRecur(tnode *r)
 	printf("\n");
 	delStack(inOrderStack);
 }
+
+#ifdef THREADING_TREE
+
+static void inOrderTraverseThread(tnode * h)
+{
+	tnode *t = l(h);
+	while(t != h) {
+		while(lf(t) == LR_FLAG_CHILD){
+			t = l(t);
+		}
+
+		printf("%c ",c(t));
+		while(rf(t) == LR_FLAG_THREADING && r(t) != h) {
+			t = r(t);
+			printf("%c ",c(t));
+		}
+		t = r(t);
+	}
+	printf("\n");
+	return;
+}
+
+static void inThreading(tnode *t,tnode **pre)
+{
+	if(t) {
+		inThreading(l(t),pre);
+		if(!l(t)) {
+			l(t) = *pre;
+			lf(t) = LR_FLAG_THREADING;
+		}
+		if(!r(*pre)) {
+			r(*pre) = t;
+			rf(*pre) = LR_FLAG_THREADING;
+		}
+		*pre = t;
+		inThreading(r(t),pre);
+	}
+}
+
+static tnode * inOrderThreading(tnode *r)
+{
+	tnode *head = newTnode('h');
+	assert(head != NULL);
+
+	lf(head) = LR_FLAG_CHILD;
+	rf(head) = LR_FLAG_THREADING;
+
+	r(head) = head;
+
+	if(!r) {
+		l(head) = head;
+	}else{
+		l(head) = r;
+		tnode * pre = head;
+		inThreading(r,&pre);
+		r(pre) = head;
+		rf(pre) = LR_FLAG_THREADING;
+		r(head) = pre;
+	}
+
+	return head;
+}
+
+#endif
 
 static void preOrderTraverse(tnode * r)
 {
@@ -356,24 +450,29 @@ int main()
 	printf("inOrderTraverseNoRecur :\n");
 	inOrderTraverseNoRecur(root);
 
+#ifdef THREADING_TREE
+	tnode *head = inOrderThreading(root);
+	inOrderTraverseThread(head);
+#endif
 
-	printf("preOrderTraverse :\n");
-	preOrderTraverse(root);
-	printf("\n");
+//	printf("preOrderTraverse :\n");
+//	preOrderTraverse(root);
+//	printf("\n");
+//
+//	printf("preOrderTraverseNoRecur :\n");
+//	preOrderTraverseNoRecur(root);
+//
+//
+//	printf("postOrderTraverse :\n");
+//	postOrderTraverse(root);
+//	printf("\n");
+//
+//	printf("postOrderTraverseNoRecur :\n");
+//	postOrderTraverseNoRecur(root);
+//
+//	printf("postOrderTraverseNoRecur_ :\n");
+//	postOrderTraverseNoRecur_(root);
 
-	printf("preOrderTraverseNoRecur :\n");
-	preOrderTraverseNoRecur(root);
-
-
-	printf("postOrderTraverse :\n");
-	postOrderTraverse(root);
-	printf("\n");
-
-	printf("postOrderTraverseNoRecur :\n");
-	postOrderTraverseNoRecur(root);
-
-	printf("postOrderTraverseNoRecur_ :\n");
-	postOrderTraverseNoRecur_(root);
 
 	return 0;
 }
