@@ -22,7 +22,7 @@ typedef struct _tree_node{
 
 #ifdef THREADING_TREE
 enum {
-	LR_FLAG_CHILD = 0,
+	LR_FLAG_CHILD = 1,
 	LR_FLAG_THREADING
 };
 static tnode head;
@@ -39,7 +39,7 @@ static tnode head;
 #endif
 
 enum {
-	TNODE_LC = 0,
+	TNODE_LC = 1,
 	TNODE_RC
 };
 
@@ -123,25 +123,33 @@ static void inOrderTraverseNoRecur(tnode *r)
 
 #ifdef THREADING_TREE
 
+/* traverse alone inOrder thread */
 static void inOrderTraverseThread(tnode * h)
 {
 	tnode *t = l(h);
 	while(t != h) {
+		/* find the start point of every loop */
 		while(lf(t) == LR_FLAG_CHILD){
 			t = l(t);
 		}
 
 		printf("%c ",c(t));
+
+		/* traverse along thread */
 		while(rf(t) == LR_FLAG_THREADING && r(t) != h) {
 			t = r(t);
 			printf("%c ",c(t));
 		}
+		/* when rf(t) == LR_FLAG_CHILD,
+		 * find next element in the right branch,
+		 * which will be the most left one of the right branch */
 		t = r(t);
 	}
 	printf("\n");
 	return;
 }
 
+/* threading helper function */
 static void inThreading(tnode *t,tnode **pre)
 {
 	if(t) {
@@ -159,6 +167,7 @@ static void inThreading(tnode *t,tnode **pre)
 	}
 }
 
+/* make the thread,return head of new inOrderThread */
 static tnode * inOrderThreading(tnode *r)
 {
 	tnode *head = newTnode('h');
@@ -174,6 +183,7 @@ static tnode * inOrderThreading(tnode *r)
 	}else{
 		l(head) = r;
 		tnode * pre = head;
+		/* make thread */
 		inThreading(r,&pre);
 		r(pre) = head;
 		rf(pre) = LR_FLAG_THREADING;
@@ -317,6 +327,63 @@ ret:
 	printf("\n");
 	delStack(postOrderStack);
 }
+
+#ifdef THREADING_TREE
+
+/* postOrderTraverseThread
+ * @r : root of the tree,end of the traverse
+ */
+static void postOrderTraverseThread(tnode *r,tnode *head)
+{
+	tnode *t = l(head);
+
+
+	while(t != head) {
+		/* find the start point of this loop */
+		while ( (lf(t) == LR_FLAG_CHILD ) || (rf(t) == LR_FLAG_CHILD )) {
+
+			if(lf(t) == LR_FLAG_CHILD ) {
+				t = l(t);
+				continue;
+			}
+
+			if(rf(t) == LR_FLAG_CHILD ) {
+				t = r(t);
+			}
+		}
+
+		printf("%c ",c(t));
+
+		while(rf(t) == LR_FLAG_THREADING && r(t) != head) {
+			t = r(t);
+			printf("%c ",c(t));
+		}
+
+		if(r(t) == head) {
+			break;
+		}
+
+		/* find next element when thread is broken */
+		if( (lf(p(t)) == LR_FLAG_CHILD && 
+					t == l(p(t)) && rf(p(t)) != LR_FLAG_CHILD) || 
+				(rf(p(t)) == LR_FLAG_CHILD && t == r(p(t))) ) {
+			/* 1) when t is left child of its parent who has no right child
+			 * 2) when t is right child of its parent
+			 * next element is its parent */
+			t = p(t);
+		}else if( lf(p(t)) == LR_FLAG_CHILD && t == l(p(t)) && //t is left child 
+				rf(p(t)) == LR_FLAG_CHILD ){	//right child exist
+			/* both children exist,next element is the first element visited in the right branch */
+			t = r(p(t));
+		}
+
+	}
+
+	printf("\n");
+	return;
+}
+
+#endif
 
 #define OPERATORS_N	7
 static char operators[OPERATORS_N] = {'+','-','*','/','(',')','#'};
