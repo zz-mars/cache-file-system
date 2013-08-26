@@ -264,8 +264,8 @@ static void postOrderTraverseNoRecur(tnode * r)
 			/* eat the null */
 			while ((t = postOrderStack->pop(postOrderStack)) == NULL);
 			tnode *s;
-			/* backtrace */
-backtrace:
+			/* backtrack */
+backtrack:
 			printf("%c ",c(t));
 
 			if((s = postOrderStack->top(postOrderStack)) == NULL){
@@ -276,13 +276,14 @@ backtrace:
 				/* if t is child of s,s should be pop out */
 				t = s;
 				postOrderStack->pop(postOrderStack);
-				goto backtrace;
+				goto backtrack;
 			}
 		}
 	}
 	printf("\n");
 	delStack(postOrderStack);
 }
+
 static void postOrderTraverseNoRecur_(tnode * r)
 {
 	stack * postOrderStack = newStack(STK_SZ);
@@ -299,8 +300,8 @@ static void postOrderTraverseNoRecur_(tnode * r)
 		}else {
 			/* eat the null */
 			while ((t = postOrderStack->pop(postOrderStack)) == NULL);
-			/* backtrace */
 
+			/* backtrack */
 			do {
 				printf("%c ",c(t));
 
@@ -311,7 +312,7 @@ static void postOrderTraverseNoRecur_(tnode * r)
 
 				if(t == l(s) || t == r(s)) {
 					/* if t is child of s,s should be pop out */
-					/* backtrace */
+					/* backtrack */
 					t = postOrderStack->pop(postOrderStack);
 					if(postOrderStack->empty(postOrderStack)) {
 						printf("%c ",c(t));
