@@ -1,20 +1,26 @@
 #include"glob.h"
+
 #define ELEM_N	256
 #define HASH_N	10
+
 static int rank[ELEM_N];;
 static int father[ELEM_N];
 static int a[ELEM_N];
 static int count[ELEM_N] = {0};
 static int index_of_longest;
+
 typedef struct key_index{
 	int key;
 	int index;
 	struct key_index * hash_p;
 	struct key_index * hash_n;
 }ki;
+
 static ki kh[ELEM_N];
 static ki * hash_table[HASH_N] = {NULL};
+
 #define HASH(key)	((key)%HASH_N)
+
 static void init_hash_table(int a[],ki kh[])
 {
 	int i,hash_v;
@@ -72,12 +78,14 @@ static void init_hash_table(int a[],ki kh[])
 	}
 	return;
 }
+
 static void make_set(int x)
 {
 	rank[x] = 0;
 	father[x] = x;
 	return;
 }
+
 static int get_father(int x)
 {
 	if(father[x] != x){
@@ -85,6 +93,7 @@ static int get_father(int x)
 	}
 	return x;
 }
+
 static void Union(int x,int y)
 {
 	int fx = get_father(x);
@@ -101,6 +110,7 @@ static void Union(int x,int y)
 	}
 	return;
 }
+
 static ki * find_in_hash_table(int key)
 {
 	int hash_v = HASH(key);
@@ -112,6 +122,7 @@ static ki * find_in_hash_table(int key)
 	}
 	return k;
 }
+
 static void rand_generator(int a[],int len)
 {
 	int i;
@@ -121,6 +132,7 @@ static void rand_generator(int a[],int len)
 	}
 	return;
 }
+
 static void init_find_set(void)
 {
 	int i;
@@ -129,6 +141,7 @@ static void init_find_set(void)
 	}
 	return;
 }
+
 static void exchange(int a[],int i,int j)
 {
 	if(i == j){
@@ -139,6 +152,7 @@ static void exchange(int a[],int i,int j)
 	a[j] = tmp;
 	return;
 }
+
 static int partionqs(int a[],int b,int e)
 {
 	int i;
@@ -154,6 +168,7 @@ static int partionqs(int a[],int b,int e)
 	exchange(a,p,e);
 	return p;
 }
+
 static void quicksortz(int a[],int b,int e)
 {
 	int i;
@@ -164,6 +179,7 @@ static void quicksortz(int a[],int b,int e)
 	}
 	return;
 }
+
 int main()
 {
 	int ip1,im1,i,j;
