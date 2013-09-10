@@ -113,10 +113,6 @@ void quickSort(int a[],int len)
 	quickSort(a+pivot_idx+1,len-pivot_idx-1);
 }
 
-void mergeSort(int a[],int len)
-{
-}
-
 void bubbleSort(int a[],int len)
 {
 	int i;
@@ -130,19 +126,160 @@ void bubbleSort(int a[],int len)
 	}
 }
 
+inline int len_of_num(int a)
+{
+	int l = 0;
+	int i = a;
+	do {
+		l++;
+		i /= 10;
+	} while(i != 0);
+	return l;
+}
+
+int biggest_len(int a[],int len)
+{
+	int b = 0;
+	int i;
+	for(i=0;i<len;i++) {
+		int l = len_of_num(a[i]);
+		if(l > b) {
+			b = l;
+		}
+	}
+	return b;
+}
+
 void radixSort(int a[],int len)
 {
+	int loops = biggest_len(a,len);
+	int *x = (int*)malloc(sizeof(int)*len);
+	int *y = (int*)malloc(sizeof(int)*len);
+	memcpy(x,a,len*sizeof(int));
+	int *p = x;
+	int *q = y;
+	int count[10];
+
+	int i = 0;
+	while(i < loops) {
+
+		int j;
+
+		for(j=0;j<10;j++) {
+			count[j] = 0;
+		}
+
+		for(j=0;j<len;j++) {
+//			int bit_of_num = low_bit_of_num(p[j],i);
+//			printf("p[%d] = %d -- bit_of_num = %d\n",j,p[j],bit_of_num);
+			count[low_bit_of_num(p[j],i)]++;
+		}
+
+		count[9] = len - count[9];
+		for(j=8;j>=0;j--) {
+			count[j] = count[j+1] - count[j];
+		}
+
+		for(j=0;j<len;j++) {
+			q[count[low_bit_of_num(p[j],i)]++] = p[j];
+		}
+
+		int *tmp = p;
+		p = q;
+		q = tmp;
+		i++;
+	}
+
+	/* copy back */
+	memcpy(a,p,len*sizeof(int));
+
+	free(x);
+	free(y);
 }
 
 void bucketSort(int a[],int len)
 {
 }
 
-void countingSort(int a[],int len)
+void mergeLR(int l[],int llen,int r[],int rlen)
 {
+	int total_len = llen + rlen;
+	int *tp = l;
+
+	int *tmp = (int*)malloc(sizeof(int)*total_len);
+
+	int i = 0,j = 0,ti = 0;
+
+	while(i < llen && j < rlen) {
+		if(l[i] < r[j]) {
+			tmp[ti++] = l[i++];
+		}else {
+			tmp[ti++] = r[j++];
+		}
+	}
+
+	while(i < llen) {
+		tmp[ti++] = l[i++];
+	}
+
+	while(j < rlen) {
+		tmp[ti++] = r[j++];
+	}
+
+	memcpy(tp,tmp,total_len*sizeof(int));
+
+	free(tmp);
 }
 
-#define ELEM_N	10
+void mergeSort(int a[],int len)
+{
+	if(len <= 1) {
+		return;
+	}
+
+	int llen = len/2;
+	int rlen = len - llen;
+
+	int *lp = a;
+	int *rp = a + llen;
+
+	mergeSort(lp,llen);
+	mergeSort(rp,rlen);
+
+	mergeLR(lp,llen,rp,rlen);
+}
+
+void countingSort(int a[],int len)
+{
+	int clen = max_of_array(a,len) + 1;
+
+	int *c = (int*)malloc(sizeof(int)*clen);
+	int *b = (int*)malloc(sizeof(int)*len);
+
+	int i;
+	for(i=0;i<clen;i++) {
+		c[i] = 0;
+	}
+
+	for(i=0;i<len;i++) {
+		c[a[i]]++;
+	}
+
+	for(i=1;i<clen;i++) {
+		c[i] += c[i-1];
+	}
+
+	for(i=0;i<len;i++) {
+		b[--c[a[i]]] = a[i];
+	}
+
+	memcpy(a,b,sizeof(int)*len);
+
+	free(c);
+	free(b);
+}
+
+#define ELEM_N	30
 
 int main()
 {
@@ -155,7 +292,10 @@ int main()
 //	shellSort(a,ELEM_N);
 //	bubbleSort(a,ELEM_N);
 //	quickSort(a,ELEM_N);
-	heapSort(a,ELEM_N);
+//	heapSort(a,ELEM_N);
+//	radixSort(a,ELEM_N);
+//	countingSort(a,ELEM_N);
+	mergeSort(a,ELEM_N);
 	printIntarray(a,ELEM_N);
 
 	return 0;

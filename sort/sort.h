@@ -43,17 +43,56 @@ static inline void swapElem(int a[],int i,int j)
 	a[j] = tmp;
 }
 
+static inline int max_of_array(int a[],int len)
+{
+	int i;
+	int max = a[0];
+	for(i=1;i<len;i++) {
+		if(a[i] > max) {
+			max = a[i];
+		}
+	}
+	return max;
+}
+
+static inline int rpower(int m,int n)
+{
+	if(n == 0) {
+		return 1;
+	}
+
+	int i=m,j;
+	for(j=0;j<n;j++) {
+		i *= m;
+	}
+	return i;
+}
+
+static inline int low_bit_of_num(int a,int i)
+{
+	return ((a/rpower(10,i)) % 10);
+}
+
 typedef void (*sortFunc)(int a[],int len);
 
 void insertionSort(int a[],int len);
+
 void selectSort(int a[],int len);
+
 void shellSort(int a[],int len);
+
 void heapSort(int a[],int len);
+
 void quickSort(int a[],int len);
+
 void mergeSort(int a[],int len);
+
 void bubbleSort(int a[],int len);
+
 void radixSort(int a[],int len);
+
 void bucketSort(int a[],int len);
+
 void countingSort(int a[],int len);
 
 #endif
