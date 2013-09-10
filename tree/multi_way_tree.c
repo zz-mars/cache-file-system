@@ -103,6 +103,7 @@ static void zlink(node * node_array,int parent,int child)
 	p->noc++;
 	return;
 }
+
 static void find_big2(int a[],int len,int * biggest,int * second_biggest)
 {
 	int i,b1 = 0,b2 = 0;
@@ -120,21 +121,24 @@ static void find_big2(int a[],int len,int * biggest,int * second_biggest)
 	}
 	return;
 }
+
 static void get_max_distance(node * root,int * max_dis,int * max_dep)
 {
 	int i,max_child_dep,sec_max_child_dep,max_child_dis,noc = root->noc;
-	int * child_dep,*child_dis;
-	node * child;
 	if(noc == 0){
 		*max_dep = 0;
 		*max_dis = 0;
 		return;
 	}
-	child_dep = (int*)malloc(noc*sizeof(int));
-	child_dis = (int*)malloc(noc*sizeof(int));
+
+	int child_dep = (int*)malloc(noc*sizeof(int));
+	int child_dis = (int*)malloc(noc*sizeof(int));
+
+	node * child;
 	for(i=0,child=root->fc;i<noc&&child!=NULL;i++,child=child->ns){
 		get_max_distance(child,&child_dis[i],&child_dep[i]);
 	}
+
 	if(noc == 1){
 		max_child_dep = child_dep[0];
 		sec_max_child_dep = -1;
@@ -143,12 +147,14 @@ static void get_max_distance(node * root,int * max_dis,int * max_dep)
 		find_big2(child_dis,noc,&max_child_dis,NULL);
 		find_big2(child_dep,noc,&max_child_dep,&sec_max_child_dep);
 	}
+
 	*max_dep = max_child_dep + 1;
 	*max_dis = zmax(max_child_dep+sec_max_child_dep+2,max_child_dis);
+
 	free(child_dep);
 	free(child_dis);
-	return;
 }
+
 int main(int argc,char *argv[])
 {
 	int max_distance,max_depth;

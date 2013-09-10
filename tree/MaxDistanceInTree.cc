@@ -1,17 +1,22 @@
 #include<iostream>
+
 using namespace std;
+
 struct NODE{
 	NODE * pLeft;
 	NODE * pRight;
 };
+
 struct RESULT{
 	int nMaxDistance;
 	int nMaxDepth;
 };
+
 int zmax(int i,int j)
 {
 	return (i>=j?i:j);
 }
+
 RESULT GetMaxDistance(NODE * root)
 {
 	if(!root){
@@ -20,21 +25,27 @@ RESULT GetMaxDistance(NODE * root)
 	}
 	RESULT lrst = GetMaxDistance(root->pLeft);
 	RESULT rrst = GetMaxDistance(root->pRight);
+
 	RESULT r;
+
 	r.nMaxDepth = zmax(lrst.nMaxDepth+1,rrst.nMaxDepth+1);
 	r.nMaxDistance = zmax(zmax(lrst.nMaxDistance,rrst.nMaxDistance),lrst.nMaxDepth+rrst.nMaxDepth+2);
+
 	return r;
 }
+
 void Link(NODE * nodes,int p,int l,int r)
 {
 	if(l != -1){
 		nodes[p].pLeft = &nodes[l];
 	}
+
 	if(r != -1){
 		nodes[p].pRight = &nodes[r];
 	}
-	return;
+
 }
+
 int main()
 {
 	NODE t[9] = {0};

@@ -1,29 +1,35 @@
 #include"glob.h"
+
 typedef struct _node{
 	struct _node * l;
 	struct _node * r;
 }node;
+
 inline int imax(int i,int j)
 {
 	return (i>=j?i:j);
 }
+
 static void get_max_distance(node * root,int * max_dis,int * max_dep)
 {
-	node * l,*r;
-	int l_max_dep,r_max_dep,l_max_dis,r_max_dis;
 	if(!root){
 		*max_dis = 0;
 		*max_dep = -1;
 		return;
 	}
-	l = root->l;
-	r = root->r;
+
+	node *l = root->l;
+	node *r = root->r;
+
+	int l_max_dep,r_max_dep,l_max_dis,r_max_dis;
+
 	get_max_distance(l,&l_max_dis,&l_max_dep);
 	get_max_distance(r,&r_max_dis,&r_max_dep);
+
 	*max_dep = imax(l_max_dep+1,r_max_dep+1);
 	*max_dis = imax(imax(l_max_dis,r_max_dis),l_max_dep+r_max_dep+2);
-	return;
 }
+
 void zlink(node * nodes,int p,int l,int r)
 {
 	if(l != -1){
@@ -34,6 +40,7 @@ void zlink(node * nodes,int p,int l,int r)
 	}
 	return;
 }
+
 int main()
 {
 	int max_distance,max_depth;
