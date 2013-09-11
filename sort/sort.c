@@ -75,6 +75,18 @@ void heapSort(int a[],int len)
 	}
 }
 
+void _quickSort(int a[],int s,int e)
+{
+	if(s >= e) {
+		return;
+	}
+
+	int pivot = quickPartition(a,s,e);
+	_quickSort(a,s,pivot-1);
+	_quickSort(a,pivot+1,e);
+}
+
+/*
 void quickSort(int a[],int len)
 {
 	if(len == 0) {
@@ -84,6 +96,12 @@ void quickSort(int a[],int len)
 	int pivot_idx = quickPartition(a,0,len-1);
 	quickSort(a,pivot_idx);
 	quickSort(a+pivot_idx+1,len-pivot_idx-1);
+}
+*/
+
+void quickSort(int a[],int len)
+{
+	_quickSort(a,0,len-1);
 }
 
 void bubbleSort(int a[],int len)
@@ -230,6 +248,7 @@ void countingSort(int a[],int len)
 
 #define ELEM_N	30
 
+/*
 int main()
 {
 	int a[ELEM_N];
@@ -240,12 +259,14 @@ int main()
 //	selectSort(a,ELEM_N);
 //	shellSort(a,ELEM_N);
 //	bubbleSort(a,ELEM_N);
-//	quickSort(a,ELEM_N);
+	quickSort(a,ELEM_N);
 //	heapSort(a,ELEM_N);
 //	radixSort(a,ELEM_N);
-	countingSort(a,ELEM_N);
+//	countingSort(a,ELEM_N);
 //	mergeSort(a,ELEM_N);
 	printIntarray(a,ELEM_N);
 
 	return 0;
 }
+
+*/

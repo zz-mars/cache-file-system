@@ -131,6 +131,10 @@ static inline int low_bit_of_num(int a,int i)
 
 static inline int quickPartition(int a[],int s,int e)
 {
+	if(s > e) {
+		fprintf(stderr,"invalid arg!\n");
+		return -1;
+	}
 	int pivot = a[e];
 	int i;
 	int last_elem_lt_pivot = s - 1;
