@@ -31,24 +31,11 @@ void shellSort(int a[],int len)
 	}
 }
 
-inline int selectMin(int a[],int m,int n)
-{
-	int i;
-	int minKey = m;
-	for(i=m+1;i<=n;i++) {
-		if(a[minKey] > a[i]){
-			minKey = i;
-		}
-	}
-	return minKey;
-}
-
 void selectSort(int a[],int len)
 {
 	int i;
 	for(i=0;i<len;i++) {
-		int min = selectMin(a,i,len-1);
-		swapElem(a,i,min);
+		swapElem(a,i,selectMinKey(a,i,len-1));
 	}
 }
 
@@ -88,20 +75,6 @@ void heapSort(int a[],int len)
 	}
 }
 
-int quickPartition(int a[],int s,int e)
-{
-	int pivot = a[e];
-	int i;
-	int last_elem_lt_pivot = -1;
-	for(i=s;i<e;i++) {
-		if(a[i] < pivot) {
-			swapElem(a,i,++last_elem_lt_pivot);
-		}
-	}
-	swapElem(a,e,++last_elem_lt_pivot);
-	return last_elem_lt_pivot;
-}
-
 void quickSort(int a[],int len)
 {
 	if(len == 0) {
@@ -124,30 +97,6 @@ void bubbleSort(int a[],int len)
 			}
 		}
 	}
-}
-
-inline int len_of_num(int a)
-{
-	int l = 0;
-	int i = a;
-	do {
-		l++;
-		i /= 10;
-	} while(i != 0);
-	return l;
-}
-
-int biggest_len(int a[],int len)
-{
-	int b = 0;
-	int i;
-	for(i=0;i<len;i++) {
-		int l = len_of_num(a[i]);
-		if(l > b) {
-			b = l;
-		}
-	}
-	return b;
 }
 
 void radixSort(int a[],int len)
@@ -294,8 +243,8 @@ int main()
 //	quickSort(a,ELEM_N);
 //	heapSort(a,ELEM_N);
 //	radixSort(a,ELEM_N);
-//	countingSort(a,ELEM_N);
-	mergeSort(a,ELEM_N);
+	countingSort(a,ELEM_N);
+//	mergeSort(a,ELEM_N);
 	printIntarray(a,ELEM_N);
 
 	return 0;
