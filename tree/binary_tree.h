@@ -7,6 +7,8 @@
 #include <assert.h>
 #include <string.h>
 
+#define THREADING_TREE
+
 typedef struct tnode{
 	char c;
 	struct tnode * p;
@@ -27,8 +29,6 @@ enum {
 	LR_FLAG_CHILD = 1,
 	LR_FLAG_THREADING
 };
-
-static tnode head;
 
 #define lf(t)	(t)->lf
 #define rf(t)	(t)->rf

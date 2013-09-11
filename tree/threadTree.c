@@ -1,5 +1,3 @@
-#define THREADING_TREE
-
 #include "binary_tree.h"
 
 void inOrderTraverseThread(tnode * h)
