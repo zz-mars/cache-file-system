@@ -7,13 +7,12 @@
 #include <assert.h>
 #include <string.h>
 
-#define THREADING_TREE
-
-typedef struct _tree_node{
+typedef struct tnode{
 	char c;
-	struct _tree_node * p;
-	struct _tree_node * l;
-	struct _tree_node * r;
+	struct tnode * p;
+	struct tnode * l;
+	struct tnode * r;
+	void *data;
 
 #ifdef THREADING_TREE
 	char lf;
@@ -23,6 +22,7 @@ typedef struct _tree_node{
 }tnode;
 
 #ifdef THREADING_TREE
+
 enum {
 	LR_FLAG_CHILD = 1,
 	LR_FLAG_THREADING
@@ -30,17 +30,15 @@ enum {
 
 static tnode head;
 
+#define lf(t)	(t)->lf
+#define rf(t)	(t)->rf
+
 #endif
 
 #define c(tn)	(tn)->c
 #define p(tn)	(tn)->p
 #define l(tn)	(tn)->l
 #define r(tn)	(tn)->r
-
-#ifdef THREADING_TREE
-#define lf(t)	(t)->lf
-#define rf(t)	(t)->rf
-#endif
 
 enum {
 	TNODE_LC = 1,
@@ -71,12 +69,38 @@ static inline void delTnode(tnode *t)
 	free(t);
 }
 
-void addNewTnode(tnode *newNode,tnode *p,char lr);
+static inline void addNewTnode(tnode *newNode,tnode *parent,char lr)
+{
+	if((lr != TNODE_RC && lr != TNODE_LC) || !parent || !newNode) {
+		fprintf(stderr,"invalid arg!\n");
+		return;
+	}
+
+//	if(!parent) {
+//		if (root) {
+//			fprintf(stderr,"root has been set,please specify parent node!\n");
+//			return;
+//		}
+//		root = parent;
+//	}
+	
+	if(lr == TNODE_LC) {
+		l(parent) = newNode;
+#ifdef THREADING_TREE
+		lf(parent) = LR_FLAG_CHILD;
+#endif
+	} else if(lr == TNODE_RC) {
+		r(parent) = newNode;
+#ifdef THREADING_TREE
+		rf(parent) = LR_FLAG_CHILD;
+#endif
+	}
+
+	p(newNode) = parent;
+}
 
 void inOrderTraverse(tnode *r);
 void inOrderTraverseNoRecur(tnode *r);
-tnode * inOrderThreading(tnode *r);
-void inOrderTraverseThread(tnode *r);
 
 void preOrderTraverse(tnode *r);
 void preOrderTraverseNoRecur(tnode *r);
@@ -84,6 +108,15 @@ void preOrderTraverseNoRecur(tnode *r);
 void postOrderTraverse(tnode *r);
 void postOrderTraverseNoRecur(tnode *r);
 void postOrderTraverseNoRecur_(tnode *r);
+
+#ifdef THREADING_TREE
+
+void inOrderThreading(tnode *r,tnode *head);
+void inOrderTraverseThread(tnode *r);
+
+tnode * postOrderThreading(tnode *r);
 void postOrderTraverseThread(tnode *r,tnode *head);
+
+#endif
 
 #endif

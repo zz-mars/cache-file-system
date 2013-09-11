@@ -1,8 +1,6 @@
 #include "binary_tree.h"
 #include "stack.h"
 
-tnode * root = NULL;
-
 #define OPERATORS_N	7
 
 static char operators[OPERATORS_N] = {'+','-','*','/','(',')','#'};
@@ -35,7 +33,7 @@ static int privilege_table[OPERATORS_N][OPERATORS_N] = {	\
 	-1,-1,-1,-1,-1,2,0	\
 };
 
-int expr_to_tree(char * expr)
+tnode * expr_to_tree(char * expr)
 {
 	stack *opStack = newStack(STK_SZ);
 	assert(opStack != NULL);
@@ -98,7 +96,7 @@ int expr_to_tree(char * expr)
 					break;
 				default:
 					fprintf(stderr,"invalid expression\n");
-					return -1;
+					return NULL;
 			}
 		}else if(IS_EXPR(expr[i])) {
 			tnode *tn = newTnode(expr[i]);
@@ -107,12 +105,11 @@ int expr_to_tree(char * expr)
 			i++;
 		}else {
 			fprintf(stderr,"invalid expression\n");
-			return -1;
+			return NULL;
 		}
 	}
 
-	root = expStack->pop(expStack);
-	assert(root != NULL);
+	tnode *root = expStack->pop(expStack);
 
 	/* all stack should be empty */
 	assert(expStack->empty(expStack) && opStack->empty(opStack));
@@ -120,14 +117,14 @@ int expr_to_tree(char * expr)
 	delStack(opStack);
 	delStack(expStack);
 
-	return 0;
+	return root;
 }
 
 int main()
 {
 	char *s = "#a+b*(c-d)-e/f#";
 
-	expr_to_tree(s);
+	tnode *root = expr_to_tree(s);
 
 	printf("inOrderTraverse :\n");
 	inOrderTraverse(root);
@@ -136,28 +133,28 @@ int main()
 	printf("inOrderTraverseNoRecur :\n");
 	inOrderTraverseNoRecur(root);
 
-#ifdef THREADING_TREE
-	tnode *head = inOrderThreading(root);
-	inOrderTraverseThread(head);
-#endif
+	tnode head;
+	inOrderThreading(root,&head);
+	printf("inOrderTraverseThread :\n");
+	inOrderTraverseThread(&head);
 
-//	printf("preOrderTraverse :\n");
-//	preOrderTraverse(root);
-//	printf("\n");
-//
-//	printf("preOrderTraverseNoRecur :\n");
-//	preOrderTraverseNoRecur(root);
-//
-//
-//	printf("postOrderTraverse :\n");
-//	postOrderTraverse(root);
-//	printf("\n");
-//
-//	printf("postOrderTraverseNoRecur :\n");
-//	postOrderTraverseNoRecur(root);
-//
-//	printf("postOrderTraverseNoRecur_ :\n");
-//	postOrderTraverseNoRecur_(root);
+	printf("preOrderTraverse :\n");
+	preOrderTraverse(root);
+	printf("\n");
+
+	printf("preOrderTraverseNoRecur :\n");
+	preOrderTraverseNoRecur(root);
+
+
+	printf("postOrderTraverse :\n");
+	postOrderTraverse(root);
+	printf("\n");
+
+	printf("postOrderTraverseNoRecur :\n");
+	postOrderTraverseNoRecur(root);
+
+	printf("postOrderTraverseNoRecur_ :\n");
+	postOrderTraverseNoRecur_(root);
 
 	return 0;
 }
