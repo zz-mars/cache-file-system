@@ -1,5 +1,48 @@
 #include "binary_tree.h"
 
+static tnode *in_pre;
+
+static void inThreading(tnode *t)
+{
+	if(t) {
+		inThreading(l(t));
+		if(!l(t)) {
+			l(t) = in_pre;
+			lf(t) = LR_FLAG_THREADING;
+		}
+		if(!r(in_pre)) {
+			r(in_pre) = t;
+			rf(in_pre) = LR_FLAG_THREADING;
+		}
+		in_pre = t;
+		inThreading(r(t));
+	}
+}
+
+void inOrderThreading(tnode *r,tnode *head)
+{
+	lf(head) = LR_FLAG_CHILD;
+	rf(head) = LR_FLAG_THREADING;
+
+	r(head) = head;
+
+	if(!r) {
+		l(head) = head;
+	}else{
+		l(head) = r;
+
+		in_pre = head;
+		/* make thread */
+		inThreading(r);
+
+		/* in_pre points to the last element,
+		 * in_pre->right_child should point to head */
+		r(in_pre) = head;
+		rf(in_pre) = LR_FLAG_THREADING;
+		r(head) = in_pre;
+	}
+}
+
 void inOrderTraverseThread(tnode * h)
 {
 	tnode *t = l(h);
@@ -24,140 +67,169 @@ void inOrderTraverseThread(tnode * h)
 	printf("\n");
 }
 
-/* threading helper function */
-static void inThreading(tnode *t,tnode **pre)
-{
-	if(t) {
-		inThreading(l(t),pre);
-		if(!l(t)) {
-			l(t) = *pre;
-			lf(t) = LR_FLAG_THREADING;
-		}
-		if(!r(*pre)) {
-			r(*pre) = t;
-			rf(*pre) = LR_FLAG_THREADING;
-		}
-		*pre = t;
-		inThreading(r(t),pre);
-	}
-}
+tnode *post_pre;
 
-/* make the thread,return head of new inOrderThread */
-void inOrderThreading(tnode *r,tnode *head)
-{
-	lf(head) = LR_FLAG_CHILD;
-	rf(head) = LR_FLAG_THREADING;
-
-	r(head) = head;
-
-	if(!r) {
-		l(head) = head;
-	}else{
-		l(head) = r;
-
-		tnode * pre = head;
-		/* make thread */
-		inThreading(r,&pre);
-
-		/* next of last points to head */
-		r(pre) = head;
-		rf(pre) = LR_FLAG_THREADING;
-		r(head) = pre;
-	}
-}
-
-tnode *pre;
-
-void postInThreading(tnode *t)
+void postThreading(tnode *t)
 {
 	if(!t) {
 		return;
 	}
 
-	postInThreading(l(t));
-	postInThreading(r(t));
+	postThreading(l(t));
+	postThreading(r(t));
 
 	if(!l(t)) {
-		l(t) = pre;
+		l(t) = post_pre;
 		lf(t) = LR_FLAG_THREADING;
 	}
 
-	if(!r(pre)) {
-		r(pre) = t;
-		rf(pre) = LR_FLAG_THREADING;
+	if(!r(post_pre)) {
+		r(post_pre) = t;
+		rf(post_pre) = LR_FLAG_THREADING;
 	}
 
-	pre = t;
+	post_pre = t;
 }
 
-tnode * postOrderThreading(tnode *r)
+void postOrderThreading(tnode *r,tnode *head)
 {
-	tnode *head = newTnode('n');
 	l(head) = r;
+	lf(head) = LR_FLAG_CHILD;
 	r(head) = head;
-	pre = head;
-
-	postInThreading(r);
-
-	r(head) = pre;
 	rf(head) = LR_FLAG_THREADING;
-	if(!r(pre)) {
-		r(pre) = head;
-		rf(pre) = LR_FLAG_THREADING;
+	post_pre = head;
+
+	postThreading(r);
+
+	/* post_pre now points to root */
+	assert(post_pre == r);
+	p(post_pre) = head;
+
+	if(!r(post_pre)) {
+		r(post_pre) = head;
+		rf(post_pre) = LR_FLAG_THREADING;
 	}
-	return head;
 }
 
-/* postOrderTraverseThread
- * @r : root of the tree,end of the traverse
- */
-void postOrderTraverseThread(tnode *r,tnode *head)
+/* return the tnode which will be traversed first */
+static tnode *find_start_point(tnode *r)
 {
-	tnode *t = l(head);
+	tnode *x = r;
+	while(1) {
+		/* find the most left node */
+		while(lf(x) == LR_FLAG_CHILD && l(x)) {x=l(x);}
+		/* if this node has right child */
+		if(rf(x) == LR_FLAG_CHILD && r(x)) {
+			x = r(x);
+			continue;
+		}
+		break;
+	}
+	return x;
+}
 
+static tnode *find_start_point_recur(tnode *r)
+{
+	tnode *x = r;
+	/* find the most left node */
+	while(lf(x) == LR_FLAG_CHILD && l(x)) {x=l(x);}
+	/* if this node has right child */
+	if(rf(x) == LR_FLAG_CHILD && r(x)) {
+		return find_start_point_recur(r(x));
+	}
+	return x;
+}
 
-	while(t != head) {
-		/* find the start point of this loop */
-		while ( (lf(t) == LR_FLAG_CHILD ) || (rf(t) == LR_FLAG_CHILD )) {
-
-			if(lf(t) == LR_FLAG_CHILD ) {
-				t = l(t);
-				continue;
+void postOrderTraverseThread(tnode *head)
+{
+	tnode *x = l(head);
+	while(x != head) {
+		x = find_start_point(x);
+		printf("%c ",c(x));
+		while(rf(x) == LR_FLAG_THREADING) {
+			x = r(x);
+			if(x == head) {
+				printf("\n");
+				return;
 			}
-
-			if(rf(t) == LR_FLAG_CHILD ) {
-				t = r(t);
+			printf("%c ",c(x));
+		}
+		/* when thread breaks */
+		while(x != head) {
+			if(rf(p(x)) == LR_FLAG_CHILD && x == r(p(x))) {
+				/* backtrace when x is right child */
+				x = p(x);
+				printf("%c ",c(x));
+			} else if(lf(p(x)) == LR_FLAG_CHILD && x == l(p(x))) {
+				/* x is left child */
+				if(r(p(x))) {
+					/* move to right side */
+					x = r(p(x));
+					break;
+				}else {
+					/* backtrace when its parent has no right child */
+					x = p(x);
+					printf("%c ",c(x));
+				}
 			}
 		}
+	}
+	printf("\n");
+}
 
-		printf("%c ",c(t));
+static tnode *pre_pre;
 
-		while(rf(t) == LR_FLAG_THREADING && r(t) != head) {
-			t = r(t);
-			printf("%c ",c(t));
-		}
-
-		if(r(t) == head) {
-			break;
-		}
-
-		/* find next element when thread is broken */
-		if( (lf(p(t)) == LR_FLAG_CHILD && 
-					t == l(p(t)) && rf(p(t)) != LR_FLAG_CHILD) || 
-				(rf(p(t)) == LR_FLAG_CHILD && t == r(p(t))) ) {
-			/* 1) when t is left child of its parent who has no right child
-			 * 2) when t is right child of its parent
-			 * next element is its parent */
-			t = p(t);
-		}else if( lf(p(t)) == LR_FLAG_CHILD && t == l(p(t)) && //t is left child 
-				rf(p(t)) == LR_FLAG_CHILD ){	//right child exist
-			/* both children exist,next element is the first element visited in the right branch */
-			t = r(p(t));
-		}
-
+static preThreading(tnode *r)
+{
+	if(!r) {
+		return;
 	}
 
+	if(!l(r)) {
+		l(r) = pre_pre;
+		lf(r) = LR_FLAG_THREADING;
+	}
+
+	if(!r(pre_pre)) {
+		r(pre_pre) = r;
+		rf(pre_pre) = LR_FLAG_THREADING;
+	}
+
+	pre_pre = r;
+
+	if(lf(r) == LR_FLAG_CHILD) {
+		preThreading(l(r));
+	}
+	preThreading(r(r));
+}
+
+void preOrderThreading(tnode *r,tnode *head)
+{
+	l(head) = r;
+	lf(head) = LR_FLAG_CHILD;
+	r(head) = head;
+	rf(head) = LR_FLAG_THREADING;
+
+	pre_pre = head;
+
+	preThreading(r);
+
+	r(pre_pre) = head;
+	rf(pre_pre) = LR_FLAG_THREADING;
+}
+
+void preOrderTraverseThread(tnode *head)
+{
+	tnode *x = l(head);
+
+	while(x != head) {
+		printf("%c ",c(x));
+		if(lf(x) == LR_FLAG_CHILD && l(x)) {
+			x = l(x);
+		} else if(rf(x) == LR_FLAG_THREADING && r(x)){
+			x = r(x);
+		}
+	}
 	printf("\n");
-	return;
 }
 

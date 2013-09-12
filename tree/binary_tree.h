@@ -114,8 +114,11 @@ void postOrderTraverseNoRecur_(tnode *r);
 void inOrderThreading(tnode *r,tnode *head);
 void inOrderTraverseThread(tnode *r);
 
-tnode * postOrderThreading(tnode *r);
-void postOrderTraverseThread(tnode *r,tnode *head);
+void postOrderThreading(tnode *r,tnode *head);
+void postOrderTraverseThread(tnode *head);
+
+void preOrderThreading(tnode *r,tnode *head);
+void preOrderTraverseThread(tnode *head);
 
 #endif
 

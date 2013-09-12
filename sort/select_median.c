@@ -40,7 +40,7 @@ int main()
 
 	printf("%dth elem : %d median #%d\n",s,i,j);
 	
-	quickSort(a,ELEM_N);
-	printIntarray(a,ELEM_N);
+//	quickSort(a,ELEM_N);
+//	printIntarray(a,ELEM_N);
 	return 0;
 }

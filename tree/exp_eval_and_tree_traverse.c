@@ -126,35 +126,44 @@ int main()
 
 	tnode *root = expr_to_tree(s);
 
-//	printf("preOrderTraverse :\n");
-//	preOrderTraverse(root);
-//	printf("\n");
-//
-//	printf("preOrderTraverseNoRecur :\n");
-//	preOrderTraverseNoRecur(root);
-//
-//
 //	printf("postOrderTraverse :\n");
 //	postOrderTraverse(root);
 //	printf("\n");
-//
-//	printf("postOrderTraverseNoRecur :\n");
-//	postOrderTraverseNoRecur(root);
-//
-//	printf("postOrderTraverseNoRecur_ :\n");
-//	postOrderTraverseNoRecur_(root);
 //
 //	printf("inOrderTraverse :\n");
 //	inOrderTraverse(root);
 //	printf("\n");
 
-	printf("inOrderTraverseNoRecur :\n");
-	inOrderTraverseNoRecur(root);
+//	printf("inOrderTraverseNoRecur :\n");
+//	inOrderTraverseNoRecur(root);
+//
+//	tnode head;
+//	inOrderThreading(root,&head);
+//	printf("inOrderTraverseThread :\n");
+//	inOrderTraverseThread(&head);
 
-	tnode head;
-	inOrderThreading(root,&head);
-	printf("inOrderTraverseThread :\n");
-	inOrderTraverseThread(&head);
+//	printf("postOrderTraverseNoRecur :\n");
+//	postOrderTraverseNoRecur(root);
+//
+//	printf("postOrderTraverseNoRecur_ :\n");
+//	postOrderTraverseNoRecur_(root);
+
+//	printf("postOrderTraverseThread : \n");
+//	tnode phead;
+//	postOrderThreading(root,&phead);
+//	postOrderTraverseThread(&phead);
+
+	printf("preOrderTraverse :\n");
+	preOrderTraverse(root);
+	printf("\n");
+
+	printf("preOrderTraverseNoRecur :\n");
+	preOrderTraverseNoRecur(root);
+
+	printf("preOrderTraverseThread : \n");
+	tnode prhead;
+	preOrderThreading(root,&prhead);
+	preOrderTraverseThread(&prhead);
 
 	return 0;
 }
