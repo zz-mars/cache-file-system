@@ -46,7 +46,6 @@ void preOrderTraverse(tnode * r)
 	if(r(r)) {
 		preOrderTraverse(r(r));
 	}
-	return;
 }
 
 void preOrderTraverseNoRecur(tnode * r)
@@ -83,7 +82,6 @@ void postOrderTraverse(tnode * r)
 		postOrderTraverse(r(r));
 	}
 	printf("%c ",c(r));
-	return;
 }
 
 void postOrderTraverseNoRecur(tnode * r)
@@ -91,79 +89,47 @@ void postOrderTraverseNoRecur(tnode * r)
 	stack * postOrderStack = newStack(STK_SZ);
 	tnode *t = r;
 	postOrderStack->push(postOrderStack,t);
-	int stack_dep = 0;
 
 	while(!postOrderStack->empty(postOrderStack)) {
 		t = postOrderStack->top(postOrderStack);
 
-		if(t) {
+		int cont = 0;
+		/* push child on stack
+		 * right child first */
+		if(r(t)) {
 			postOrderStack->push(postOrderStack,r(t));
-			postOrderStack->push(postOrderStack,l(t));
-		}else {
-			/* eat the null */
-			while ((t = postOrderStack->pop(postOrderStack)) == NULL);
-			tnode *s;
-			/* backtrack */
-backtrack:
-			printf("%c ",c(t));
+			cont = 1;
+		}
 
-			if((s = postOrderStack->top(postOrderStack)) == NULL){
-				break;
+		if(l(t)) {
+			postOrderStack->push(postOrderStack,l(t));
+			cont = 1;
+		}
+
+		if(cont) {
+			continue;
+		}
+
+		while(!postOrderStack->empty(postOrderStack)) {
+			t = postOrderStack->pop(postOrderStack);
+			printf("%c ",c(t));
+			tnode *s = postOrderStack->top(postOrderStack);
+
+			if(!s) {
+				goto post_trav_over;
 			}
 
 			if(t == l(s) || t == r(s)) {
 				/* if t is child of s,s should be pop out */
-				t = s;
-				postOrderStack->pop(postOrderStack);
-				goto backtrack;
+				continue;
 			}
+			/* t and s are brothers, 
+			 * move to right side */
+			break;
 		}
 	}
+post_trav_over:
 	printf("\n");
 	delStack(postOrderStack);
 }
 
-void postOrderTraverseNoRecur_(tnode * r)
-{
-	stack * postOrderStack = newStack(STK_SZ);
-	tnode *t = r;
-	postOrderStack->push(postOrderStack,t);
-	int stack_dep = 0;
-
-	while(!postOrderStack->empty(postOrderStack)) {
-		t = postOrderStack->top(postOrderStack);
-
-		if(t) {
-			postOrderStack->push(postOrderStack,r(t));
-			postOrderStack->push(postOrderStack,l(t));
-		}else {
-			/* eat the null */
-			while ((t = postOrderStack->pop(postOrderStack)) == NULL);
-
-			/* backtrack */
-			do {
-				printf("%c ",c(t));
-
-				tnode *s;
-				if((s = postOrderStack->top(postOrderStack)) == NULL){
-					goto ret;
-				}
-
-				if(t == l(s) || t == r(s)) {
-					/* if t is child of s,s should be pop out */
-					/* backtrack */
-					t = postOrderStack->pop(postOrderStack);
-					if(postOrderStack->empty(postOrderStack)) {
-						printf("%c ",c(t));
-					}
-				} else {
-					/* t and s are brothers */
-					break;
-				}
-			}while(!postOrderStack->empty(postOrderStack));
-		}
-	}
-ret:
-	printf("\n");
-	delStack(postOrderStack);
-}

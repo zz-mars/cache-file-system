@@ -103,6 +103,7 @@ void postOrderThreading(tnode *r,tnode *head)
 
 	/* post_pre now points to root */
 	assert(post_pre == r);
+	/* set parent of root to head */
 	p(post_pre) = head;
 
 	if(!r(post_pre)) {
@@ -157,7 +158,7 @@ void postOrderTraverseThread(tnode *head)
 		/* when thread breaks */
 		while(x != head) {
 			if(rf(p(x)) == LR_FLAG_CHILD && x == r(p(x))) {
-				/* backtrace when x is right child */
+				/* backtrack when x is right child */
 				x = p(x);
 				printf("%c ",c(x));
 			} else if(lf(p(x)) == LR_FLAG_CHILD && x == l(p(x))) {
@@ -167,7 +168,7 @@ void postOrderTraverseThread(tnode *head)
 					x = r(p(x));
 					break;
 				}else {
-					/* backtrace when its parent has no right child */
+					/* backtrack when its parent has no right child */
 					x = p(x);
 					printf("%c ",c(x));
 				}
@@ -223,10 +224,25 @@ void preOrderTraverseThread(tnode *head)
 	tnode *x = l(head);
 
 	while(x != head) {
-		printf("%c ",c(x));
+		while(x && x != head) {
+			printf("%c ",c(x));
+			if(rf(x) == LR_FLAG_THREADING && r(x)) {
+				x = r(x);
+				continue;
+			}
+			break;
+		}
+
+		if(!x || x == head) {
+			break;
+		}
+
 		if(lf(x) == LR_FLAG_CHILD && l(x)) {
 			x = l(x);
-		} else if(rf(x) == LR_FLAG_THREADING && r(x)){
+			continue;
+		}
+
+		if(rf(x) == LR_FLAG_CHILD && r(x)){
 			x = r(x);
 		}
 	}

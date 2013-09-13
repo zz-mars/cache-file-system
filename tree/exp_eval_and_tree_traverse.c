@@ -124,34 +124,36 @@ int main()
 {
 	char *s = "#a+b*(c-d)-e/f#";
 
-	tnode *root = expr_to_tree(s);
+	tnode *root;
+	root = expr_to_tree(s);
 
-//	printf("postOrderTraverse :\n");
-//	postOrderTraverse(root);
-//	printf("\n");
-//
-//	printf("inOrderTraverse :\n");
-//	inOrderTraverse(root);
-//	printf("\n");
+	printf("inOrderTraverse :\n");
+	inOrderTraverse(root);
+	printf("\n");
 
-//	printf("inOrderTraverseNoRecur :\n");
-//	inOrderTraverseNoRecur(root);
-//
-//	tnode head;
-//	inOrderThreading(root,&head);
-//	printf("inOrderTraverseThread :\n");
-//	inOrderTraverseThread(&head);
+	printf("inOrderTraverseNoRecur :\n");
+	inOrderTraverseNoRecur(root);
 
-//	printf("postOrderTraverseNoRecur :\n");
-//	postOrderTraverseNoRecur(root);
-//
-//	printf("postOrderTraverseNoRecur_ :\n");
-//	postOrderTraverseNoRecur_(root);
+	tnode head;
+	inOrderThreading(root,&head);
+	printf("inOrderTraverseThread :\n");
+	inOrderTraverseThread(&head);
 
-//	printf("postOrderTraverseThread : \n");
-//	tnode phead;
-//	postOrderThreading(root,&phead);
-//	postOrderTraverseThread(&phead);
+	root = expr_to_tree(s);
+
+	printf("postOrderTraverse :\n");
+	postOrderTraverse(root);
+	printf("\n");
+
+	printf("postOrderTraverseNoRecur :\n");
+	postOrderTraverseNoRecur(root);
+
+	printf("postOrderTraverseThread : \n");
+	tnode phead;
+	postOrderThreading(root,&phead);
+	postOrderTraverseThread(&phead);
+
+	root = expr_to_tree(s);
 
 	printf("preOrderTraverse :\n");
 	preOrderTraverse(root);

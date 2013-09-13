@@ -107,7 +107,6 @@ void preOrderTraverseNoRecur(tnode *r);
 
 void postOrderTraverse(tnode *r);
 void postOrderTraverseNoRecur(tnode *r);
-void postOrderTraverseNoRecur_(tnode *r);
 
 #ifdef THREADING_TREE
 
