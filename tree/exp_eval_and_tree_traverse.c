@@ -36,9 +36,14 @@ static int privilege_table[OPERATORS_N][OPERATORS_N] = {	\
 tnode * expr_to_tree(char * expr)
 {
 	stack *opStack = newStack(STK_SZ);
-	assert(opStack != NULL);
+	if(!opStack) {
+		return NULL;
+	}
+
 	stack *expStack = newStack(STK_SZ);
-	assert(expStack != NULL);
+	if(!expStack) {
+		return NULL;
+	}
 
 	int i = 0;
 	int sl = strlen(expr);
@@ -48,7 +53,9 @@ tnode * expr_to_tree(char * expr)
 
 			/* operator */
 			tnode *tn = newTnode(expr[i]);
-			assert(tn != NULL);
+			if(!tn) {
+				return NULL;
+			}
 
 			if(opStack->empty(opStack)) {
 				/* push to operator stack when it is null */
@@ -95,12 +102,15 @@ tnode * expr_to_tree(char * expr)
 					}
 					break;
 				default:
-					fprintf(stderr,"invalid expression\n");
+					fprintf(stderr,"invalid expression!\n");
 					return NULL;
 			}
 		}else if(IS_EXPR(expr[i])) {
 			tnode *tn = newTnode(expr[i]);
-			assert(tn != NULL);
+			if(!tn) {
+				return NULL;
+			}
+
 			expStack->push(expStack,tn);
 			i++;
 		}else {
