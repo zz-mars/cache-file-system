@@ -1,4 +1,8 @@
-#include"glob.h"
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <fcntl.h>
+
 typedef struct _node{
 	int id;				/* node id */
 	int noc;			/* number of children */
