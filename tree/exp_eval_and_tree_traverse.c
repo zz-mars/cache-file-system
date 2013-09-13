@@ -120,12 +120,23 @@ tnode * expr_to_tree(char * expr)
 	return root;
 }
 
-int main()
+int main(int argc,char *argv[])
 {
-	char *s = "#a+b*(c-d)-e/f#";
+//	if(argc != 2) {
+//		fprintf(stderr,"Please specify an expression as argument!\n");
+//		return 1;
+//	}
+//
+//	char *s = argv[1];
+
+	char *s = "#a+b*(c-d)-e/(f+g)#";
 
 	tnode *root;
 	root = expr_to_tree(s);
+	if(!root) {
+		fprintf(stderr,"Maybe something is wrong with the expression..\n");
+		return 1;
+	}
 
 	printf("inOrderTraverse :\n");
 	inOrderTraverse(root);
