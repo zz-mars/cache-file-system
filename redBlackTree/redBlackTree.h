@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <assert.h>
 
 #define RBT_RED			'R'
 #define RBT_BLACK		'B'
@@ -30,6 +31,10 @@ typedef struct rb_node_t{
 	struct rb_node_t * p;
 	void *data;
 }rb_node_t;
+
+extern rb_node_t * root;
+
+extern rb_node_t *NIL_NODE;
 
 #define p(z)			(z)->p
 #define l(z)			(z)->l
@@ -104,16 +109,36 @@ static inline void print_rbt(rb_node_t * r)
 	if(n == NIL_NODE){
 		return;
 	}
-	print_rb_node_t_node(n,PARENT);
+	print_rb_node(n,PARENT);
 	if(l(n) != NIL_NODE){
-		print_rb_node_t_node(l(n),LEFT_CHILD);
+		print_rb_node(l(n),LEFT_CHILD);
 	}
 	if(r(n) != NIL_NODE){
-		print_rb_node_t_node(r(n),RIGHT_CHILD);
+		print_rb_node(r(n),RIGHT_CHILD);
 	}
 	printf("------------------------------------\n");
-	print_rb_node_t(l(n));
-	print_rb_node_t(r(n));
+	print_rbt(l(n));
+	print_rbt(r(n));
 }
+
+extern void rbt_init();
+
+extern rb_node_t * search_node(int key);
+
+extern rb_node_t * rbt_max(rb_node_t * z);
+
+extern rb_node_t * rbt_min(rb_node_t * z);
+
+extern rb_node_t * rbt_suc(rb_node_t * z);
+
+extern rb_node_t * rbt_pre(rb_node_t * z);
+
+extern void rb_insert(rb_node_t * z);
+
+extern rb_node_t * rb_delete(int key);
+
+extern int rbt_simple_insert(int key);
+
+extern void rbt_simple_delete(rb_node_t *node);
 
 #endif

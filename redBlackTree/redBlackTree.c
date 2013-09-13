@@ -1,13 +1,9 @@
 #include "redBlackTree.h"
 
-#define ELEMENTS_NUM	13
-
-static int a[ELEMENTS_NUM] = {2,399,387,219,266,382,381,278,363,100,250,240,245};
 
 static rb_node_t rb_node_nil;
-static rb_node_t * NIL_NODE;
 
-extern rb_node_t * root;
+rb_node_t *NIL_NODE;
 
 void rbt_init()
 {
@@ -70,7 +66,7 @@ rb_node_t * search_node(int key)
 	return node;
 }
 
-rb_node_t * rbt_max_min(rb_node_t * z,char mm)
+rb_node_t * rbt_max(rb_node_t * z)
 {
 	if(z == NIL_NODE) {
 		return NIL_NODE;
@@ -92,14 +88,14 @@ rb_node_t * rbt_min(rb_node_t * z)
 	return z;
 }
 
-rb_node_t * rb_suc(rb_node_t * z)
+rb_node_t * rbt_suc(rb_node_t * z)
 {
 	if(z == NIL_NODE){
 		return NIL_NODE;
 	}
 
 	if(r(z) != NIL_NODE){
-		return rb_min(r(z));
+		return rbt_min(r(z));
 	}
 
 	rb_node_t *x = z;
@@ -109,14 +105,14 @@ rb_node_t * rb_suc(rb_node_t * z)
 	return p(x);
 }
 
-rb_node_t * rb_pre(rb_node_t * z)
+rb_node_t * rbt_pre(rb_node_t * z)
 {
 	if(z == NIL_NODE){
 		return z;
 	}
 
 	if(l(z) != NIL_NODE){
-		return rb_max(l(z));
+		return rbt_max(l(z));
 	}
 
 	rb_node_t *x = z;
@@ -184,11 +180,15 @@ void rbt_simple_delete(rb_node_t *node)
 	}else if(r(node) == NIL_NODE) {
 		rbt_transplant(node,l(node));
 	}else {
-		rb_node_t *snode = rb_min(r(node));
+		rb_node_t *snode = rbt_min(r(node));
 		if(snode != r(node)) {
-		} else {
-			rbt_transplant;
+			rbt_transplant(snode,r(snode));
+			r(snode) = r(node);
+			p(r(node)) = snode;
 		}
+		l(snode) = l(node);
+		p(l(node)) = snode;
+		rbt_transplant(node,snode);
 	}
 }
 
@@ -285,10 +285,10 @@ static void rb_insert_fixup(rb_node_t * z)
 	return;
 }
 
-static void rb_insert(rb_node_t * z)
+void rb_insert(rb_node_t * z)
 {
 	int di;
-	rb_node_t * node = search_node(i(z),&di);
+	rb_node_t * node = raw_search_node(i(z),&di);
 	printf("rb_insert : search_node -- di : %d\n",di);
 	p(z) = node;
 	if(node == NIL_NODE){
@@ -386,7 +386,7 @@ rb_node_t * rb_delete(int key)
 {
 	int di;
 	rb_node_t *x,*y;
-	rb_node_t * z = search_node(key,&di);
+	rb_node_t * z = raw_search_node(key,&di);
 	if(z == NIL_NODE || di != 0){
 		fprintf(stderr,"NO NODE WITH KEY %d\n",key);
 		return NIL_NODE;
@@ -396,7 +396,7 @@ rb_node_t * rb_delete(int key)
 	if(l(z) == NIL_NODE || r(z) == NIL_NODE){
 		y = z;
 	}else{
-		y = rb_suc(z);
+		y = rbt_suc(z);
 	}
 	if(l(y) != NIL_NODE){
 		x = l(y);
@@ -422,72 +422,3 @@ rb_node_t * rb_delete(int key)
 	return y;
 }
 
-int main()
-{
-	int i,di;
-	rb_node_t * node,*tmp;
-	init_rb_node_t();
-	/*-------------- insert some nodes ------------------*/
-	for(i = 0;i < ELEMENTS_NUM;i++){
-		printf("now insert node -- %d\n",a[i]);
-		if((node = new_rb_node_t_node(a[i])) == NULL){
-			fprintf(stderr,"NEW_RBT_NODE FAIL : KEY -- %d\n",a[i]);
-			break;
-		}
-		rb_insert(node);
-		print_rb_node_t(root);
-		printf("---------------------------------------------------------------------------------------------------------\n");
-	}
-//	/*-------------- test rb_node_t_max --  rb_node_t_min  --  rb_node_t_suc -- rb_node_t_pre component ---------------*/
-//	node = rb_max(root);
-//	if(node != NIL_NODE){
-//		printf("max of rb_node_t -- %d\n",i(node));
-//	}
-//	node = rb_min(root);
-//	if(node != NIL_NODE){
-//		printf("min of rb_node_t -- %d\n",i(node));
-//	}
-//	for(i = 0;i<ELEMENTS_NUM;i++){
-//		node = search_node(a[i],&di);
-//		if(node == NIL_NODE || di != 0){
-//			fprintf(stderr,"search_node fail : KEY -- %d\n",a[i]);
-//			break;
-//		}
-//		tmp = rb_suc(node);
-//		if(tmp == NIL_NODE){
-//			printf("NO SUC_NODE FOR -- %d\n",i(node));
-//		}else{
-//			printf("SUC_NODE FOR %d is -- %d\n",i(node),i(tmp));
-//		}	
-//		tmp = rb_pre(node);
-//		if(tmp == NIL_NODE){
-//			printf("NO PRE_NODE FOR -- %d\n",i(node));
-//		}else{
-//			printf("PRE_NODE FOR %d is -- %d\n",i(node),i(tmp));
-//		}
-//	}
-//	/*-------------- test rotate component ----------------------*/
-//	printf("--------------------- 1st rotate ----------------\n");
-//	node = root;
-//	left_rotate(node);
-//	print_rb_node_t(root);
-//	printf("--------------------- rotate back ----------------\n");
-//	node = root;
-//	right_rotate(node);
-//	print_rb_node_t(root);
-//	printf("--------------------- rotate 266 ----------------\n");
-//	node = search_node(266,&di);
-//	left_rotate(node);
-//	print_rb_node_t(root);
-//	printf("--------------------- rotate 381 ----------------\n");
-//	node = search_node(381,&di);
-//	right_rotate(node);
-//	print_rb_node_t(root);
-
-	/*---------------- test delete node component ----------------*/
-//	printf("--------------- delete 219 ------------\n");
-//	node = rb_delete(219);
-	print_rb_node_t(root);
-	free_rb_node_t(root);
-	return 0;
-}
