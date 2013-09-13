@@ -52,12 +52,12 @@ void inOrderTraverseThread(tnode * h)
 			t = l(t);
 		}
 
-		printf("%c ",c(t));
+		visit_node(t);
 
 		/* traverse along thread */
 		while(rf(t) == LR_FLAG_THREADING && r(t) != h) {
 			t = r(t);
-			printf("%c ",c(t));
+			visit_node(t);
 		}
 		/* when rf(t) == LR_FLAG_CHILD,
 		 * find next element in the right branch,
@@ -146,21 +146,21 @@ void postOrderTraverseThread(tnode *head)
 	tnode *x = l(head);
 	while(x != head) {
 		x = find_start_point(x);
-		printf("%c ",c(x));
+		visit_node(x);
 		while(rf(x) == LR_FLAG_THREADING) {
 			x = r(x);
 			if(x == head) {
 				printf("\n");
 				return;
 			}
-			printf("%c ",c(x));
+			visit_node(x);
 		}
 		/* when thread breaks */
 		while(x != head) {
 			if(rf(p(x)) == LR_FLAG_CHILD && x == r(p(x))) {
 				/* backtrack when x is right child */
 				x = p(x);
-				printf("%c ",c(x));
+				visit_node(x);
 			} else if(lf(p(x)) == LR_FLAG_CHILD && x == l(p(x))) {
 				/* x is left child */
 				if(r(p(x))) {
@@ -170,7 +170,7 @@ void postOrderTraverseThread(tnode *head)
 				}else {
 					/* backtrack when its parent has no right child */
 					x = p(x);
-					printf("%c ",c(x));
+					visit_node(x);
 				}
 			}
 		}
@@ -225,7 +225,7 @@ void preOrderTraverseThread(tnode *head)
 
 	while(x != head) {
 		while(x && x != head) {
-			printf("%c ",c(x));
+			visit_node(x);
 			if(rf(x) == LR_FLAG_THREADING && r(x)) {
 				x = r(x);
 				continue;

@@ -10,7 +10,7 @@ void inOrderTraverse(tnode * r)
 	if(l(r)) {
 		inOrderTraverse(l(r));
 	}
-	printf("%c ",c(r));
+	visit_node(r);
 	if(r(r)) {
 		inOrderTraverse(r(r));
 	}
@@ -26,7 +26,7 @@ void inOrderTraverseNoRecur(tnode *r)
 			t = l(t);
 		}else {
 			t = inOrderStack->pop(inOrderStack);
-			printf("%c ",c(t));
+			visit_node(t);
 			t = r(t);
 		}
 	}
@@ -39,7 +39,7 @@ void preOrderTraverse(tnode * r)
 	if (!r) {
 		return;
 	}
-	printf("%c ",c(r));
+	visit_node(r);
 	if(l(r)) {
 		preOrderTraverse(l(r));
 	}
@@ -55,7 +55,7 @@ void preOrderTraverseNoRecur(tnode * r)
 
 	while (t || !preOrderStack->empty(preOrderStack)) {
 		if(t) {
-			printf("%c ",c(t));
+			visit_node(t);
 
 			if(r(t)) {
 				/* save right child */
@@ -81,7 +81,7 @@ void postOrderTraverse(tnode * r)
 	if(r(r)) {
 		postOrderTraverse(r(r));
 	}
-	printf("%c ",c(r));
+	visit_node(r);
 }
 
 void postOrderTraverseNoRecur(tnode * r)
@@ -112,7 +112,7 @@ void postOrderTraverseNoRecur(tnode * r)
 
 		while(!postOrderStack->empty(postOrderStack)) {
 			t = postOrderStack->pop(postOrderStack);
-			printf("%c ",c(t));
+			visit_node(t);
 			tnode *s = postOrderStack->top(postOrderStack);
 
 			if(!s) {

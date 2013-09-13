@@ -40,6 +40,11 @@ enum {
 #define l(tn)	(tn)->l
 #define r(tn)	(tn)->r
 
+static inline void visit_node(tnode *t)
+{
+	printf("%c ",c(t));
+}
+
 enum {
 	TNODE_LC = 1,
 	TNODE_RC
