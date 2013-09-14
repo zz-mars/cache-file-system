@@ -16,11 +16,7 @@ int main()
 	/*-------------- insert some nodes ------------------*/
 	for(i = 0;i < ELEMENTS_NUM;i++){
 		printf("now insert node -- %d\n",a[i]);
-		if((node = new_rb_node(a[i])) == NULL){
-			fprintf(stderr,"NEW_RBT_NODE FAIL : KEY -- %d\n",a[i]);
-			break;
-		}
-		rbt_insert(&T,node);
+		rbt_insert(&T,a[i]);
 		printRedBlackTree(&T);
 		printf("------------------------------------------------------------\n");
 	}

@@ -59,10 +59,7 @@ void rbt_destory(redBlackTree_t *T);
 
 rb_node_t * search_node(redBlackTree_t *T,int key);
 
-int rbt_simple_insert(redBlackTree_t *T,int key);
-void rbt_simple_delete(redBlackTree_t *T,rb_node_t *node);
-
-void rbt_insert(redBlackTree_t *T,rb_node_t * z);
+void rbt_insert(redBlackTree_t *T,int key);
 rb_node_t * rbt_delete(redBlackTree_t *T,int key);
 
 void printRedBlackTree(redBlackTree_t *T);

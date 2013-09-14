@@ -77,37 +77,34 @@ void printRedBlackTree(redBlackTree_t *T)
 	print_rbt(T->root);
 }
 
-/* raw_search_node : seach node for a given key
- * return value : 
- * 1. NIL_NODE is returned when root == NIL_NODE
- *	  and *di is set to 0
- *
- * 2. When none NIL_NODE is returned :
- * 1) *di = 0 if key is found
- * 2) *di = -1 if key is not found 
- *    but should be inserted as left child of node returned
- * 3) *di = 1 if key is not found
- *	  but should be inserted as right child of node */
+enum {
+	RAW_SEARCH_NULL_TREE = 0,
+	RAW_SEARCH_LEFT_CHILD,
+	RAW_SEARCH_RIGHT_CHILD,
+	RAW_SEARCH_EXIST
+};
+/* raw_search_node : seach node for a given key */
 static rb_node_t * raw_search_node(redBlackTree_t *T,int key,int * di)
 {
 	rb_node_t * node = T->root;
 
-	*di = 0;
+	*di = RAW_SEARCH_NULL_TREE;
 
 	while(node != NIL_NODE){
 		if(key == i(node)) {
+			*di = RAW_SEARCH_EXIST;
 			break;
 		}
 
 		if(key < i(node)){
 			if(l(node) == NIL_NODE) {
-				*di = -1;
+				*di = RAW_SEARCH_LEFT_CHILD;
 				break;
 			}
 			node = l(node);
 		}else if(key > i(node)){
 			if(r(node) == NIL_NODE) {
-				*di = 1;
+				*di = RAW_SEARCH_RIGHT_CHILD;
 				break;
 			}
 			node = r(node);
@@ -124,7 +121,8 @@ rb_node_t * search_node(redBlackTree_t *T,int key)
 {
 	int di;
 	rb_node_t *node = raw_search_node(T,key,&di);
-	if(di != 0) {
+
+	if(di != RAW_SEARCH_EXIST) {
 		node = NIL_NODE;
 	}
 
@@ -187,37 +185,31 @@ rb_node_t * rbt_pre(rb_node_t * z)
 	return p(x);
 }
 
-int rbt_simple_insert(redBlackTree_t *T,int key)
+static rb_node_t * rbt_simple_insert(redBlackTree_t *T,int key)
 {
 	int di;
 	rb_node_t *node = raw_search_node(T,key,&di);
-	if(di != 0) {
-		assert(node != NIL_NODE);
-		rb_node_t *newNode = new_rb_node(key);
-		if(newNode == NIL_NODE) {
-			return 1;
-		}
-
-		p(newNode) = node;
-
-		if(di == -1) {
-			l(node) = newNode;
-		}else if(di == 1) {
-			r(node) = newNode;
-		}
-
-		return 0;
+	if(di == RAW_SEARCH_EXIST) {
+		fprintf(stderr,"key %d already exist!\n",key);
+		return NIL_NODE;
 	}
 
-	if(node == NIL_NODE) {
-		T->root = new_rb_node(key);
-		if(T->root == NIL_NODE) {
-			return 1;
-		}
-		return 0;
+	rb_node_t *newNode = new_rb_node(key);
+	if(newNode == NIL_NODE) {
+		return NIL_NODE;
 	}
-	/* key already exist */
-	return 1;
+
+	p(newNode) = node;
+
+	if(di == RAW_SEARCH_LEFT_CHILD) {
+		l(node) = newNode;
+	}else if(di == RAW_SEARCH_RIGHT_CHILD) {
+		r(node) = newNode;
+	}else if(di == RAW_SEARCH_NULL_TREE) {
+		T->root = newNode;
+	}
+
+	return newNode;
 }
 
 /* transplant the whole subtree 'old' by 'new' */
@@ -370,27 +362,14 @@ static void rbt_insert_fixup(redBlackTree_t *T,rb_node_t * z)
 	return;
 }
 
-void rbt_insert(redBlackTree_t *T,rb_node_t * z)
+void rbt_insert(redBlackTree_t *T,int key)
 {
-	int di;
-	rb_node_t * node = raw_search_node(T,i(z),&di);
-	printf("rbt_insert : search_node -- di : %d\n",di);
-	p(z) = node;
-	if(node == NIL_NODE){
-		/* empty rb_tree */
-		printf("rbt_insert : first node will be inserted!\n");
-		T->root = z;
-	}else if(di == 0){
-		/* node with key==z->i already exists */
-		printf("key already exists!\n");
+	rb_node_t * z = rbt_simple_insert(T,key);
+
+	if( z == NIL_NODE) {
 		return;
-	}else{
-		if(di == -1){
-			l(node) = z;
-		}else if(di == 1){
-			r(node) = z;
-		}
 	}
+
 	l(z) = NIL_NODE;
 	r(z) = NIL_NODE;
 	c(z) = RBT_RED;
