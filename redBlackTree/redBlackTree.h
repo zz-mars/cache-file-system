@@ -32,15 +32,40 @@ typedef struct rb_node_t{
 	void *data;
 }rb_node_t;
 
-extern rb_node_t * root;
-
-extern rb_node_t *NIL_NODE;
+typedef struct {
+	rb_node_t *root;
+	int nodes_nr;
+}redBlackTree_t;
 
 #define p(z)			(z)->p
 #define l(z)			(z)->l
 #define r(z)			(z)->r
 #define c(z)			(z)->c
 #define i(z)			(z)->i
+
+/* NIL_NODE is declared in this header file 
+ * and defined in redBlackTree.c */
+extern rb_node_t *NIL_NODE;
+
+rb_node_t * rbt_max(rb_node_t * z);
+rb_node_t * rbt_min(rb_node_t * z);
+
+rb_node_t * rbt_suc(rb_node_t * z);
+rb_node_t * rbt_pre(rb_node_t * z);
+
+/* redBlackTree_t that these functions will operate on must be specified */
+void rbt_init(redBlackTree_t *T);
+void rbt_destory(redBlackTree_t *T);
+
+rb_node_t * search_node(redBlackTree_t *T,int key);
+
+int rbt_simple_insert(redBlackTree_t *T,int key);
+void rbt_simple_delete(redBlackTree_t *T,rb_node_t *node);
+
+void rbt_insert(redBlackTree_t *T,rb_node_t * z);
+rb_node_t * rbt_delete(redBlackTree_t *T,int key);
+
+void printRedBlackTree(redBlackTree_t *T);
 
 static inline rb_node_t * new_rb_node(int key)
 {
@@ -58,87 +83,5 @@ static inline rb_node_t * new_rb_node(int key)
 
 	return new_node;
 }
-
-static inline void free_rb_node(rb_node_t * r)
-{
-	if(r != NIL_NODE){
-		free(r);
-	}
-}
-
-static inline void free_rbt(rb_node_t *root)
-{
-	if(root == NIL_NODE) {
-		return;
-	}
-	free_rbt(l(root));
-	free_rbt(r(root));
-	free_rb_node(root);
-}
-
-static inline void print_rb_node(rb_node_t * node,char i)
-{
-	char * lpr;
-
-	if(node == NIL_NODE){
-		fprintf(stderr,"NULL NODE!\n");
-		return;
-	}
-
-	switch(i){
-		case LEFT_CHILD:
-			lpr = H_LEFT_CHILD;
-			break;
-		case PARENT:
-			lpr = H_PARENT;
-			break;
-		case RIGHT_CHILD:
-			lpr = H_RIGHT_CHILD;
-			break;
-		default:
-			fprintf(stderr,"UNRECOGNIZED I\n");
-			return;
-	}
-	printf("%s%3d -- %c\n",lpr,i(node),c(node));
-}
-
-static inline void print_rbt(rb_node_t * r)
-{
-	rb_node_t * n = r;
-
-	if(n == NIL_NODE){
-		return;
-	}
-	print_rb_node(n,PARENT);
-	if(l(n) != NIL_NODE){
-		print_rb_node(l(n),LEFT_CHILD);
-	}
-	if(r(n) != NIL_NODE){
-		print_rb_node(r(n),RIGHT_CHILD);
-	}
-	printf("------------------------------------\n");
-	print_rbt(l(n));
-	print_rbt(r(n));
-}
-
-extern void rbt_init();
-
-extern rb_node_t * search_node(int key);
-
-extern rb_node_t * rbt_max(rb_node_t * z);
-
-extern rb_node_t * rbt_min(rb_node_t * z);
-
-extern rb_node_t * rbt_suc(rb_node_t * z);
-
-extern rb_node_t * rbt_pre(rb_node_t * z);
-
-extern void rb_insert(rb_node_t * z);
-
-extern rb_node_t * rb_delete(int key);
-
-extern int rbt_simple_insert(int key);
-
-extern void rbt_simple_delete(rb_node_t *node);
 
 #endif

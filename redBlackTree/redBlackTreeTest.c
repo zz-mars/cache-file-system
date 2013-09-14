@@ -1,7 +1,5 @@
 #include "redBlackTree.h"
 
-rb_node_t *root = NULL;
-
 #define ELEMENTS_NUM	13
 
 static int a[ELEMENTS_NUM] = {2,399,387,219,266,382,381,278,363,100,250,240,245};
@@ -10,7 +8,11 @@ int main()
 {
 	int i,di;
 	rb_node_t * node,*tmp;
-	rbt_init();
+
+	redBlackTree_t T;
+
+	rbt_init(&T);
+
 	/*-------------- insert some nodes ------------------*/
 	for(i = 0;i < ELEMENTS_NUM;i++){
 		printf("now insert node -- %d\n",a[i]);
@@ -18,9 +20,9 @@ int main()
 			fprintf(stderr,"NEW_RBT_NODE FAIL : KEY -- %d\n",a[i]);
 			break;
 		}
-		rb_insert(node);
-		print_rbt(root);
-		printf("---------------------------------------------------------------------------------------------------------\n");
+		rbt_insert(&T,node);
+		printRedBlackTree(&T);
+		printf("------------------------------------------------------------\n");
 	}
 //	/*-------------- test rb_node_t_max --  rb_node_t_min  --  rb_node_t_suc -- rb_node_t_pre component ---------------*/
 //	node = rb_max(root);
@@ -71,7 +73,9 @@ int main()
 	/*---------------- test delete node component ----------------*/
 //	printf("--------------- delete 219 ------------\n");
 //	node = rb_delete(219);
-	print_rbt(root);
-	free_rbt(root);
+
+	printRedBlackTree(&T);
+	rbt_destory(&T);
+
 	return 0;
 }
