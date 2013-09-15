@@ -212,48 +212,6 @@ static rb_node_t * rbt_simple_insert(redBlackTree_t *T,int key)
 	return newNode;
 }
 
-/* transplant the whole subtree 'old' by 'new' */
-static void rbt_transplant(redBlackTree_t *T,rb_node_t *old,rb_node_t *new)
-{
-	if(!old || old == NIL_NODE) {
-		fprintf(stderr,"invalid arguments!\n");
-		return;
-	}
-
-	if(p(old) == NIL_NODE) {
-		T->root = new;
-	}else if(old == l(p(old))) {
-		l(p(old)) = new;
-	}else if(old == r(p(old))) {
-		r(p(old)) = new;
-	}
-
-	if(new != NIL_NODE) {
-		p(new) = p(old);
-	}
-}
-
-void rbt_simple_delete(redBlackTree_t *T,rb_node_t *node)
-{
-	if(!node || node == NIL_NODE) {return;}
-
-	if(l(node) == NIL_NODE) {
-		rbt_transplant(T,node,r(node));
-	}else if(r(node) == NIL_NODE) {
-		rbt_transplant(T,node,l(node));
-	}else {
-		rb_node_t *snode = rbt_min(r(node));
-		if(snode != r(node)) {
-			rbt_transplant(T,snode,r(snode));
-			r(snode) = r(node);
-			p(r(node)) = snode;
-		}
-		l(snode) = l(node);
-		p(l(node)) = snode;
-		rbt_transplant(T,node,snode);
-	}
-}
-
 static void left_rotate(redBlackTree_t *T,rb_node_t * x)
 {
 	rb_node_t * y = r(x);
@@ -370,9 +328,6 @@ void rbt_insert(redBlackTree_t *T,int key)
 		return;
 	}
 
-	l(z) = NIL_NODE;
-	r(z) = NIL_NODE;
-	c(z) = RBT_RED;
 	rbt_insert_fixup(T,z);
 }
 
@@ -446,43 +401,112 @@ static void rbt_delete_fixup(redBlackTree_t *T,rb_node_t * z)
 	c(x) = RBT_BLACK;
 }
 
+//rb_node_t * rbt_delete(redBlackTree_t *T,int key)
+//{
+//	int di;
+//	rb_node_t *x,*y;
+//	rb_node_t * z = raw_search_node(T,key,&di);
+//	if(z == NIL_NODE || di != 0){
+//		fprintf(stderr,"NO NODE WITH KEY %d\n",key);
+//		return NIL_NODE;
+//	}
+//	/* z != NIL_NODE && di == 0 */
+//	/* y is the node to be deleted */
+//	if(l(z) == NIL_NODE || r(z) == NIL_NODE){
+//		y = z;
+//	}else{
+//		y = rbt_suc(z);
+//	}
+//	if(l(y) != NIL_NODE){
+//		x = l(y);
+//	}else{
+//		x = r(y);
+//	}
+//	p(x) = p(y);
+//	if(p(y) == NIL_NODE){
+//		T->root = x;
+//	}else{
+//		if(y == l(p(y))){
+//			l(p(y)) = x;
+//		}else if(y == r(p(y))){
+//			r(p(y)) = x;
+//		}
+//	}
+//	if(y != z){
+//		i(z) = i(y);
+//	}
+//	if(c(y) == RBT_BLACK){
+//		rbt_delete_fixup(T,x);
+//	}
+//	return y;
+//}
+
+/* transplant the whole subtree 'old' by 'new' */
+static void rb_transplant(redBlackTree_t *T,rb_node_t *old,rb_node_t *new)
+{
+	if(!old || old == NIL_NODE) {
+		fprintf(stderr,"invalid arguments!\n");
+		return;
+	}
+
+	if(p(old) == NIL_NODE) {
+		T->root = new;
+	}else if(old == l(p(old))) {
+		l(p(old)) = new;
+	}else if(old == r(p(old))) {
+		r(p(old)) = new;
+	}
+
+	p(new) = p(old);
+}
+
+static int rbt_simple_delete(redBlackTree_t *T,int key,
+		rb_node_t **to_delete,rb_node_t **to_fixup)
+{
+	rb_node_t *node = search_node(T,key);
+	if(node == NIL_NODE) {
+		return 1;
+	}
+
+	rb_node_t *to_del = node;
+	rb_node_t *to_fix;
+	if(l(node) == NIL_NODE) {
+		to_fix = r(node);
+	}else if(r(node) == NIL_NODE) {
+		to_fix = l(node);
+	}else {
+		to_del = rbt_min(r(node));
+		to_fix = r(to_del);
+
+		/* when 'node' is not the node to be deleted 
+		 * exchange key and satalite data */
+		int i = i(node);
+		i(node) = i(to_del);
+		i(to_del) = i;
+
+		char *data = d(node);
+		d(node) = d(to_del);
+		d(to_del) = data;
+	}
+
+	rb_transplant(T,to_del,to_fix);
+	*to_delete = to_del;
+	*to_fixup = to_fix;
+
+	return 0;
+}
+
 rb_node_t * rbt_delete(redBlackTree_t *T,int key)
 {
-	int di;
-	rb_node_t *x,*y;
-	rb_node_t * z = raw_search_node(T,key,&di);
-	if(z == NIL_NODE || di != 0){
-		fprintf(stderr,"NO NODE WITH KEY %d\n",key);
+	rb_node_t *to_del,*to_fix;
+	if(rbt_simple_delete(T,key,&to_del,&to_fix)) {
 		return NIL_NODE;
 	}
-	/* z != NIL_NODE && di == 0 */
-	/* y is the node to be deleted */
-	if(l(z) == NIL_NODE || r(z) == NIL_NODE){
-		y = z;
-	}else{
-		y = rbt_suc(z);
+
+	if(c(to_del) == RBT_BLACK) {
+		rbt_delete_fixup(T,to_fix);
 	}
-	if(l(y) != NIL_NODE){
-		x = l(y);
-	}else{
-		x = r(y);
-	}
-	p(x) = p(y);
-	if(p(y) == NIL_NODE){
-		T->root = x;
-	}else{
-		if(y == l(p(y))){
-			l(p(y)) = x;
-		}else if(y == r(p(y))){
-			r(p(y)) = x;
-		}
-	}
-	if(y != z){
-		i(z) = i(y);
-	}
-	if(c(y) == RBT_BLACK){
-		rbt_delete_fixup(T,x);
-	}
-	return y;
+
+	return to_del;
 }
 

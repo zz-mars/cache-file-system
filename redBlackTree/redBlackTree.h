@@ -7,8 +7,10 @@
 #include <string.h>
 #include <assert.h>
 
-#define RBT_RED			'R'
-#define RBT_BLACK		'B'
+enum {
+	RBT_RED = 2,
+	RBT_BLACK
+};
 
 #define RED_STR			"red"
 #define BLACK_STR		"black"
@@ -37,11 +39,12 @@ typedef struct {
 	int nodes_nr;
 }redBlackTree_t;
 
-#define p(z)			(z)->p
-#define l(z)			(z)->l
-#define r(z)			(z)->r
-#define c(z)			(z)->c
-#define i(z)			(z)->i
+#define p(z)	(z)->p
+#define l(z)	(z)->l
+#define r(z)	(z)->r
+#define c(z)	(z)->c
+#define i(z)	(z)->i
+#define d(z)	(z)->data
 
 /* NIL_NODE is declared in this header file 
  * and defined in redBlackTree.c */
