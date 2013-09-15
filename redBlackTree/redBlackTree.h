@@ -8,22 +8,9 @@
 #include <assert.h>
 
 enum {
-	RBT_RED = 2,
-	RBT_BLACK
+	RBT_RED = 'R',
+	RBT_BLACK = 'B'
 };
-
-#define RED_STR			"red"
-#define BLACK_STR		"black"
-
-enum {
-	LEFT_CHILD = 1,		
-	PARENT,		
-	RIGHT_CHILD		
-};
-
-#define H_LEFT_CHILD	"LEFT_CHILD : "
-#define H_PARENT		"PARENT : "
-#define H_RIGHT_CHILD	"RIGHT_CHILD : "
 
 typedef struct rb_node_t{
 	int i;
@@ -82,6 +69,34 @@ static inline rb_node_t * new_rb_node(int key)
 	c(new_node) = RBT_RED;
 
 	return new_node;
+}
+
+enum {
+	LEFT_CHILD = 1,		
+	PARENT,		
+	RIGHT_CHILD		
+};
+
+static inline void print_rb_node(rb_node_t * node,char i)
+{
+	if(node == NIL_NODE){
+		fprintf(stderr,"NULL NODE!\n");
+		return;
+	}
+
+	char *lpr;
+	switch(i){
+		case LEFT_CHILD:
+			lpr = "left-child";
+			break;
+		case PARENT:
+			lpr = "parent";
+			break;
+		case RIGHT_CHILD:
+			lpr = "right-child";
+			break;
+	}
+	printf("%s : %3d : %c\n",lpr,i(node),c(node));
 }
 
 #endif

@@ -27,32 +27,6 @@ void rbt_destory(redBlackTree_t *T)
 	free_rbt(T->root);
 }
 
-static inline void print_rb_node(rb_node_t * node,char i)
-{
-	char * lpr;
-
-	if(node == NIL_NODE){
-		fprintf(stderr,"NULL NODE!\n");
-		return;
-	}
-
-	switch(i){
-		case LEFT_CHILD:
-			lpr = H_LEFT_CHILD;
-			break;
-		case PARENT:
-			lpr = H_PARENT;
-			break;
-		case RIGHT_CHILD:
-			lpr = H_RIGHT_CHILD;
-			break;
-		default:
-			fprintf(stderr,"UNRECOGNIZED I\n");
-			return;
-	}
-	printf("%s%3d -- %c\n",lpr,i(node),c(node));
-}
-
 static void print_rbt(rb_node_t * r)
 {
 	rb_node_t * n = r;
@@ -273,7 +247,6 @@ static void rbt_insert_fixup(redBlackTree_t *T,rb_node_t * z)
 {
 	rb_node_t * y;
 	while(c(p(z)) == RBT_RED){
-		printf("current z_value is -- %d\n",i(z));
 		/* p(z) not null and color is red,
 		 * so p(z) is not root --> p(p(z)) exists */
 		if(p(z) == l(p(p(z)))){
@@ -401,46 +374,6 @@ static void rbt_delete_fixup(redBlackTree_t *T,rb_node_t * z)
 	c(x) = RBT_BLACK;
 }
 
-//rb_node_t * rbt_delete(redBlackTree_t *T,int key)
-//{
-//	int di;
-//	rb_node_t *x,*y;
-//	rb_node_t * z = raw_search_node(T,key,&di);
-//	if(z == NIL_NODE || di != 0){
-//		fprintf(stderr,"NO NODE WITH KEY %d\n",key);
-//		return NIL_NODE;
-//	}
-//	/* z != NIL_NODE && di == 0 */
-//	/* y is the node to be deleted */
-//	if(l(z) == NIL_NODE || r(z) == NIL_NODE){
-//		y = z;
-//	}else{
-//		y = rbt_suc(z);
-//	}
-//	if(l(y) != NIL_NODE){
-//		x = l(y);
-//	}else{
-//		x = r(y);
-//	}
-//	p(x) = p(y);
-//	if(p(y) == NIL_NODE){
-//		T->root = x;
-//	}else{
-//		if(y == l(p(y))){
-//			l(p(y)) = x;
-//		}else if(y == r(p(y))){
-//			r(p(y)) = x;
-//		}
-//	}
-//	if(y != z){
-//		i(z) = i(y);
-//	}
-//	if(c(y) == RBT_BLACK){
-//		rbt_delete_fixup(T,x);
-//	}
-//	return y;
-//}
-
 /* transplant the whole subtree 'old' by 'new' */
 static void rb_transplant(redBlackTree_t *T,rb_node_t *old,rb_node_t *new)
 {
@@ -499,6 +432,7 @@ static int rbt_simple_delete(redBlackTree_t *T,int key,
 rb_node_t * rbt_delete(redBlackTree_t *T,int key)
 {
 	rb_node_t *to_del,*to_fix;
+
 	if(rbt_simple_delete(T,key,&to_del,&to_fix)) {
 		return NIL_NODE;
 	}
@@ -509,4 +443,45 @@ rb_node_t * rbt_delete(redBlackTree_t *T,int key)
 
 	return to_del;
 }
+
+/* old version of rbt_delete */
+//rb_node_t * rbt_delete(redBlackTree_t *T,int key)
+//{
+//	int di;
+//	rb_node_t *x,*y;
+//	rb_node_t * z = raw_search_node(T,key,&di);
+//	if(z == NIL_NODE || di != 0){
+//		fprintf(stderr,"NO NODE WITH KEY %d\n",key);
+//		return NIL_NODE;
+//	}
+//	/* z != NIL_NODE && di == 0 */
+//	/* y is the node to be deleted */
+//	if(l(z) == NIL_NODE || r(z) == NIL_NODE){
+//		y = z;
+//	}else{
+//		y = rbt_suc(z);
+//	}
+//	if(l(y) != NIL_NODE){
+//		x = l(y);
+//	}else{
+//		x = r(y);
+//	}
+//	p(x) = p(y);
+//	if(p(y) == NIL_NODE){
+//		T->root = x;
+//	}else{
+//		if(y == l(p(y))){
+//			l(p(y)) = x;
+//		}else if(y == r(p(y))){
+//			r(p(y)) = x;
+//		}
+//	}
+//	if(y != z){
+//		i(z) = i(y);
+//	}
+//	if(c(y) == RBT_BLACK){
+//		rbt_delete_fixup(T,x);
+//	}
+//	return y;
+//}
 
