@@ -276,11 +276,14 @@ static void right_rotate(redBlackTree_t *T,rb_node_t * x)
  *		c(p(z)) = RBT_BLACK;
  *		c(p(p(z))) = RBT_RED;
  *		right_rotate(T,p(p(z)));
- *	We paint p(z) to black and p(p(z)) to red,and right rotate p(p(z)),
+ *	We paint p(z) to black and p(p(z)) to red,and do the right rotateo on p(p(z)),
  *	after then the additional red color goes to z's uncle's side and
- *	the black-height property stay unchanged.
+ *	the black-height property will stay unchanged.
  *
  * PS:ROTATE WILL NOT CHANGE THE BLACK-HEIGHT PROPERTY.
+ *
+ * FINALLY,WE SHOULD SET THE ROOT TO BLACK TO MAKE SURE WHEN THE FIRST NODE IS INSERTED,
+ * IT WILL BE TRE ROOT AND BE BLACK.
  *	*/
 static void rbt_insert_fixup(redBlackTree_t *T,rb_node_t * z)
 {
@@ -343,6 +346,24 @@ void rbt_insert(redBlackTree_t *T,int key)
 	rbt_insert_fixup(T,z);
 }
 
+/* We need to fix-up the redBlackTree only if we have deleted the 
+ * node whose color is black.
+ * If c(to_del) is red :
+ *	1) Deleting a red node simply has no effect on the black-height property.
+ *	2) No red nodes will be made adjacent when deleting a red node.
+ *	3) This red node will not be the root when it is red,so the root stay black. 
+ *
+ * When deleting a black node y,a new node x is to replace y's place,
+ * and y's black color will be pushed to x.So here x may get doubly black color 
+ * or red-black color according to its original color.
+ * This violates the principle that every node can be only red or black.
+ * So the goal of rbt_delete_fixup is to absorb the additional black color on 
+ * the node. To make this,we consider the following cases.
+ * Still we only consider the case when x is left child of its parent,and there's 
+ * a symmetric one when x is right child of its parent.
+ *
+ * For each case,there are four subcases.
+ * 1.  */
 static void rbt_delete_fixup(redBlackTree_t *T,rb_node_t * z)
 {
 	rb_node_t * x = z,*w;
