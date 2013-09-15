@@ -243,12 +243,52 @@ static void right_rotate(redBlackTree_t *T,rb_node_t * x)
 	p(x) = y;
 }
 
+/* As we add a new node with color red,
+ * if color of its parent is red too,
+ * we need to resolve the additional red color.
+ * We make it by considering the following 3 cases :
+ *
+ * 1. When z's uncle is red too,so both z's parent and z's uncle is red.
+ * In this case, we simply color z's parent and z's uncle to black,
+ * and color z's grand-parent from black to red.
+ * Now there's no violation between z and its parent.
+ * The node that may cause violation goes to z's grand-parent,
+ * who is colored from black to red.So we start a new loop with z=p(p(z)). 
+ *
+ * 2. If z's uncle is black,we cannot simply do as the case above.
+ * Considering our goal to resolve the additional red color,
+ * we may make it by some rotation and the red color will finally go
+ * to z's uncle's side.As z's uncle is black,it will be okay for its uncle.
+ * Mention that we may need more than one rotation to make it.
+ * Here we only consider the case of p(z) == l(p(p(z))),
+ * which is symmetric with the case of p(z) == r(p(p(z))).
+ * Now we only condiser the first case,and there are two subcases for each one:
+ *
+ *	2.1 When z is right child of its parent ( z == r(p(z)) ).
+ *	We do the following :
+ *		z = p(z);
+ *		left-rotate(T,z);
+ *	After then,z and p(z) will still be red,which is still violating the rule.
+ *	But z now becomes left child of its parent,which is next case we will consider.
+ *
+ *	2.2 When z is left child of its parent ( z == l(p(z)) ).
+ *	We do the following :
+ *		c(p(z)) = RBT_BLACK;
+ *		c(p(p(z))) = RBT_RED;
+ *		right_rotate(T,p(p(z)));
+ *	We paint p(z) to black and p(p(z)) to red,and right rotate p(p(z)),
+ *	after then the additional red color goes to z's uncle's side and
+ *	the black-height property stay unchanged.
+ *
+ * PS:ROTATE WILL NOT CHANGE THE BLACK-HEIGHT PROPERTY.
+ *	*/
 static void rbt_insert_fixup(redBlackTree_t *T,rb_node_t * z)
 {
 	rb_node_t * y;
 	while(c(p(z)) == RBT_RED){
 		/* p(z) not null and color is red,
-		 * so p(z) is not root --> p(p(z)) exists */
+		 * so p(z) is not root --> p(p(z)) exists
+		 * and c(p(p(z))) is RBT_BLACK */
 		if(p(z) == l(p(p(z)))){
 			/* p(z) is left child of its parent */
 			y = r(p(p(z)));
@@ -290,7 +330,6 @@ static void rbt_insert_fixup(redBlackTree_t *T,rb_node_t * z)
 		}
 	}
 	c(T->root) = RBT_BLACK;
-	return;
 }
 
 void rbt_insert(redBlackTree_t *T,int key)
