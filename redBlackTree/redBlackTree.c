@@ -358,12 +358,91 @@ void rbt_insert(redBlackTree_t *T,int key)
  * or red-black color according to its original color.
  * This violates the principle that every node can be only red or black.
  * So the goal of rbt_delete_fixup is to absorb the additional black color on 
- * the node. To make this,we consider the following cases.
+ * the node. To make this,we consider the following.
+ *
  * Still we only consider the case when x is left child of its parent,and there's 
  * a symmetric one when x is right child of its parent.
  *
- * For each case,there are four subcases.
- * 1.  */
+ * For the case of x == l(p(x)),there are some subcases.
+ * First of all,we should be aware that x is black and it must have a brother to make
+ * the same black-height on both side of its parent.Assume w is x's brother.
+ *
+ * 1. When w is red,x and w 's parent must be black and w must have two children whose 
+ * color are black.We do the following :
+ *		c(p(x)) = RBT_RED;
+ *		c(w) = RBT_BLACK;
+ *		left_rotate(T,p(x));
+ *		w = r(p(x));
+ * First we repaint p(x) to red and w to black,then do the left rotation,w is re-assigned
+ * to be x's brother.But now,w is black,which means x now has a black brother.Now we go
+ * to the following cases.
+ *
+ * 2. When w is black,we get three subcases according to the color of w's child.
+ *
+ *	2.1 Both of w's left and right child are black
+ *	As x and w are black too,we can simply push	the additional black color upward to x's parent,
+ *	so here x become singly black and w become red.It will be okay for w to be red because both
+ *	of its children are black.We then reassign x to be p(x) which now has color of doubly black 
+ *	or red-black according to its original color.A new loop will be started with new x.
+ *
+ *	Mention that although now x has an additional black color,this is not reflected in the c(x) property,
+ *	which means c(x) still represents its original color.JUST REMEMBER X IS THE NODE WHO HAS AN ADDITIONAL
+ *	BLACK COLOR BESIDES ITS ORIGINAL COLOR.
+ *	The loop will terminate if c(x) == RBT_RED,then we simply repaint x to be black,which means,when x
+ *	is red and it has additional black color,the fix-up will end simply by pushing the black color into x.
+ *	If the new x is originally black too and now it has doubly black color,the loop will continue to absorb
+ *	the additional black color.
+ *
+ *	2.2 w's left child is red and right child is black
+ *	We do the following:
+ *		c(l(w)) = RBT_BLACK;
+ *		c(w) = RBT_RED;
+ *		right_rotate(T,w);
+ *		w = r(p(x));
+ *	By doing these operations,w is still x's black brother.But now w has a red right child,which is the next case.
+ *
+ *	2.3 w's right child is red
+ *	Now we get a view that both w and x is black,w's right child is red.We do the following:
+ *		c(w) = c(p(w));
+ *		c(p(x)) = c(r(w)) = RBT_BLACK;
+ *		left_rotate(T,p(x));
+ *		x = T->root;
+ *	Considering the view,x and w are black,w's right child is red,which can be used to absorb w's black color.
+ *	There are some color transfers in the operations above,which are essentially as following:
+ *
+ *	1) w's black color				----------->	r(w) ( which is originally red )
+ *
+ *	2) p(x)'s color					----------->	w ( whose color has been absorbed by r(w) )
+ *
+ *	Now w has the color of p(x),and after a left-rotation,it will replace p(x).
+ *	p(x) now is free to aborb the additional black color on x.
+ *
+ *	3) x's additional black color	----------->	p(x) ( whose color has been absorbed by w )
+ *	
+ *	After the color transfer,we do the left rotation and the additional black color is aborbed finally.
+ *	And then the loop should end.We do this by assigning x with T->root,which will be tested before the next
+ *	loop starts,then the loop ends.
+ *
+ *	---------------------------------- post script ----------------------------------
+ *
+ *	Q1: When the fix-up operaions is needed?
+ *	A1: When x has doubly black color and it is not the root,a fix-up operation is needed.
+ *		If x is originally red,the additional black color will simply be absorbed.
+ *		Or if x is root,although it has doubly black color,it will just be okay to keep only one black color
+ *		just because it is the root,anything it does has the same effect on all the nodes.
+ *
+ *	Q2: What essentially the fix-up operations do?
+ *	A2: To absorb the additional black color.To make this,we should find some free node to absorb it.
+ *		Candidates are x's parent node,who is used to absorb x's additional black color in two situations :
+ *
+ *		1) when x's brother w is black and both w's children are black,black color goes upwards to p(x),
+ *		and then x is still black and w becomes red.
+ *		Loop continue with x = p(x).
+ *
+ *		2) x's brother w is black and r(w) is red.As disscussed,some color transfers help to absorb the additional
+ *		black color.
+ *
+ *	*/
 static void rbt_delete_fixup(redBlackTree_t *T,rb_node_t * z)
 {
 	rb_node_t * x = z,*w;
