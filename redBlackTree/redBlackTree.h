@@ -12,6 +12,8 @@ enum {
 	RBT_BLACK = 'B'
 };
 
+#define LEVEL_PRINT
+
 typedef struct rb_node_t{
 	int i;
 	char c;
@@ -19,6 +21,9 @@ typedef struct rb_node_t{
 	struct rb_node_t * r;
 	struct rb_node_t * p;
 	void *data;
+#ifdef LEVEL_PRINT
+	char last_in_this_level;
+#endif
 }rb_node_t;
 
 typedef struct {

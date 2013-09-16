@@ -1,7 +1,7 @@
 #ifndef _QUEUE_H
 #define _QUEUE_H
 
-#define INIT_QUEUE_SZ	3
+#define INIT_QUEUE_SZ	128
 
 typedef struct {
 	void **m;
@@ -10,6 +10,26 @@ typedef struct {
 	int rear;
 	int elem_n;
 } queue_t;
+
+static inline void *queue_rear(queue_t *q,int idx)
+{
+	if(idx >= q->elem_n) {
+		fprintf(stderr,"out of range!\n");
+		return NULL;
+	}
+
+	return q->m[(q->rear+q->msize-idx-1)%q->msize];
+}
+
+static inline void *queue_front(queue_t *q,int idx)
+{
+	if(idx >= q->elem_n) {
+		fprintf(stderr,"out of range!\n");
+		return NULL;
+	}
+
+	return q->m[(q->front+idx)%q->msize];
+}
 
 static inline void print_queue(queue_t *q)
 {

@@ -8,6 +8,12 @@
 #define i(z)	(z)->i
 #define d(z)	(z)->data
 
+#ifdef LEVEL_PRINT
+
+#define last_in_this_level(z)	(z)->last_in_this_level
+
+#endif
+
 static rb_node_t nil_node;
 
 rb_node_t *NIL_NODE = NULL;
@@ -32,6 +38,10 @@ static inline rb_node_t * new_rb_node(int key)
 	r(new_node) = NIL_NODE;
 	p(new_node) = NIL_NODE;
 	c(new_node) = RBT_RED;
+
+#ifdef LEVEL_PRINT
+	last_in_this_level(new_node) = 0;
+#endif
 
 	return new_node;
 }
@@ -121,9 +131,17 @@ int rbt_max_depth(redBlackTree_t *T)
 	return rbt_find_max_depth(T->root);
 }
 
+#ifdef LEVEL_PRINT
+
 void rbt_level_traverse(redBlackTree_t *T)
 {
 	rb_node_t *node = T->root;
+	if(node == NIL_NODE) {
+		printf("NULL redBlackTree!\n");
+		return;
+	}
+
+	last_in_this_level(node) = 1;
 	queue_t *ltq = init_queue(INIT_QUEUE_SZ);
 	if(!ltq) {
 		return;
@@ -135,7 +153,21 @@ void rbt_level_traverse(redBlackTree_t *T)
 
 	while(!queue_empty(ltq)) {
 		node = de_queue(ltq);
-		printf("%d%c\n",i(node),c(node));
+		printf("%d%c ",i(node),c(node));
+
+		if(last_in_this_level(node)) {
+			printf("\n");
+			if(r(node) != NIL_NODE) {
+				last_in_this_level(r(node)) = 1;
+			}else if(l(node) != NIL_NODE) {
+				last_in_this_level(l(node)) = 1;
+			}else {
+				rb_node_t *n = queue_rear(ltq,0);
+				if(!n) {
+					last_in_this_level(n) = 1;
+				}
+			}
+		}
 
 		if(l(node) != NIL_NODE) {
 			if(en_queue(ltq,l(node))) {
@@ -149,9 +181,12 @@ void rbt_level_traverse(redBlackTree_t *T)
 			}
 		}
 	}
+
 destroy_q_and_ret:
 	destory_queue(ltq);
 }
+
+#endif
 
 enum {
 	RAW_SEARCH_NULL_TREE = 0,
@@ -159,6 +194,7 @@ enum {
 	RAW_SEARCH_RIGHT_CHILD,
 	RAW_SEARCH_EXIST
 };
+
 /* raw_search_node : seach node for a given key */
 static rb_node_t * raw_search_node(redBlackTree_t *T,int key,int * di)
 {
