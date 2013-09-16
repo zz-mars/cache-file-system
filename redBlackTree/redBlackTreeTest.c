@@ -15,15 +15,16 @@ int main()
 
 	/*-------------- insert some nodes ------------------*/
 	for(i = 0;i < ELEMENTS_NUM;i++){
-		printf("now insert node -- %d\n",a[i]);
 		rbt_insert(&T,a[i]);
 	}
 
 	printRedBlackTree(&T);
+	rbt_level_traverse(&T);
 
 	rbt_delete(&T,381);
 
 	printRedBlackTree(&T);
+	rbt_level_traverse(&T);
 
 	rbt_destory(&T);
 

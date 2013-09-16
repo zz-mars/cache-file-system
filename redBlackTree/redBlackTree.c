@@ -1,4 +1,12 @@
 #include "redBlackTree.h"
+#include "queue.h"
+
+#define p(z)	(z)->p
+#define l(z)	(z)->l
+#define r(z)	(z)->r
+#define c(z)	(z)->c
+#define i(z)	(z)->i
+#define d(z)	(z)->data
 
 static rb_node_t nil_node;
 
@@ -9,6 +17,23 @@ void rbt_init(redBlackTree_t *T)
 	T->root = NIL_NODE = &nil_node;
 	c(NIL_NODE) = RBT_BLACK;
 	T->nodes_nr = 0;
+}
+
+static inline rb_node_t * new_rb_node(int key)
+{
+	rb_node_t * new_node = (rb_node_t *)malloc(sizeof(rb_node_t));
+	if(new_node == NULL){
+		perror("new rb_node_t");
+		return NIL_NODE;
+	}
+
+	i(new_node) = key;
+	l(new_node) = NIL_NODE;
+	r(new_node) = NIL_NODE;
+	p(new_node) = NIL_NODE;
+	c(new_node) = RBT_RED;
+
+	return new_node;
 }
 
 /* free the whole subtree */
@@ -25,6 +50,34 @@ static void free_rbt(rb_node_t *root)
 void rbt_destory(redBlackTree_t *T)
 {
 	free_rbt(T->root);
+}
+
+enum {
+	LEFT_CHILD = 1,		
+	PARENT,		
+	RIGHT_CHILD		
+};
+
+static inline void print_rb_node(rb_node_t * node,char i)
+{
+	if(node == NIL_NODE){
+		fprintf(stderr,"NULL NODE!\n");
+		return;
+	}
+
+	char *lpr;
+	switch(i){
+		case LEFT_CHILD:
+			lpr = "left-child";
+			break;
+		case PARENT:
+			lpr = "parent";
+			break;
+		case RIGHT_CHILD:
+			lpr = "right-child";
+			break;
+	}
+	printf("%s : %3d : %c\n",lpr,i(node),c(node));
 }
 
 static void print_rbt(rb_node_t * r)
@@ -49,6 +102,55 @@ static void print_rbt(rb_node_t * r)
 void printRedBlackTree(redBlackTree_t *T)
 {
 	print_rbt(T->root);
+}
+
+static int rbt_find_max_depth(rb_node_t *node)
+{
+	if(node == NIL_NODE) {
+		return 0;
+	}
+
+	int ld = rbt_find_max_depth(l(node));
+	int rd = rbt_find_max_depth(r(node));
+
+	return (ld>rd?(ld+1):(rd+1));
+}
+
+int rbt_max_depth(redBlackTree_t *T)
+{
+	return rbt_find_max_depth(T->root);
+}
+
+void rbt_level_traverse(redBlackTree_t *T)
+{
+	rb_node_t *node = T->root;
+	queue_t *ltq = init_queue(INIT_QUEUE_SZ);
+	if(!ltq) {
+		return;
+	}
+
+	if(en_queue(ltq,node)) {
+		goto destroy_q_and_ret;
+	}
+
+	while(!queue_empty(ltq)) {
+		node = de_queue(ltq);
+		printf("%d%c\n",i(node),c(node));
+
+		if(l(node) != NIL_NODE) {
+			if(en_queue(ltq,l(node))) {
+				break;
+			}
+		}
+
+		if(r(node) != NIL_NODE) {
+			if(en_queue(ltq,r(node))) {
+				break;
+			}
+		}
+	}
+destroy_q_and_ret:
+	destory_queue(ltq);
 }
 
 enum {
@@ -377,7 +479,7 @@ void rbt_insert(redBlackTree_t *T,int key)
  * to be x's brother.But now,w is black,which means x now has a black brother.Now we go
  * to the following cases.
  *
- * 2. When w is black,we get three subcases according to the color of w's child.
+ * 2. When w is black,we get three subcases according to the color of w's children.
  *
  *	2.1 Both of w's left and right child are black
  *	As x and w are black too,we can simply push	the additional black color upward to x's parent,
@@ -431,7 +533,7 @@ void rbt_insert(redBlackTree_t *T,int key)
  *		Or if x is root,although it has doubly black color,it will just be okay to keep only one black color
  *		just because it is the root,anything it does has the same effect on all the nodes.
  *
- *	Q2: What essentially the fix-up operations do?
+ *	Q2: What essentially do the fix-up operations do?
  *	A2: To absorb the additional black color.To make this,we should find some free node to absorb it.
  *		Candidates are x's parent node,who is used to absorb x's additional black color in two situations :
  *
