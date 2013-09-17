@@ -152,20 +152,24 @@ void rbt_level_traverse(redBlackTree_t *T)
 	}
 
 	while(!queue_empty(ltq)) {
-		node = de_queue(ltq);
+		de_queue(ltq,(void**)&node);
 		printf("%d%c ",i(node),c(node));
 
+		last_in_this_level(l(node)) = last_in_this_level(r(node)) = 0;
 		if(last_in_this_level(node)) {
 			printf("\n");
+			if(l(node) == NIL_NODE && r(node) == NIL_NODE) {
+				rb_node_t *n;
+				if(queue_rear(ltq,0,(void**)&n) == 0) {
+					last_in_this_level(n) = 1;
+				}
+				continue;
+			}
+
 			if(r(node) != NIL_NODE) {
 				last_in_this_level(r(node)) = 1;
 			}else if(l(node) != NIL_NODE) {
 				last_in_this_level(l(node)) = 1;
-			}else {
-				rb_node_t *n = queue_rear(ltq,0);
-				if(!n) {
-					last_in_this_level(n) = 1;
-				}
 			}
 		}
 
@@ -181,6 +185,8 @@ void rbt_level_traverse(redBlackTree_t *T)
 			}
 		}
 	}
+
+	printf("\n");
 
 destroy_q_and_ret:
 	destory_queue(ltq);

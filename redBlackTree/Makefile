@@ -1,7 +1,8 @@
 BINS = redBlackTreeTest
+CC_FLAGS = -g -o
 
 redBlackTreeTest : redBlackTreeTest.o redBlackTree.o
-	gcc $? -o $@
+	gcc $? $(CC_FLAGS) $@
 
 .PHONY : clean
 

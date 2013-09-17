@@ -11,24 +11,26 @@ typedef struct {
 	int elem_n;
 } queue_t;
 
-static inline void *queue_rear(queue_t *q,int idx)
+static inline int queue_rear(queue_t *q,int idx,void **p)
 {
 	if(idx >= q->elem_n) {
-		fprintf(stderr,"out of range!\n");
-		return NULL;
+//		fprintf(stderr,"out of range!\n");
+		return 1;
 	}
 
-	return q->m[(q->rear+q->msize-idx-1)%q->msize];
+	*p = q->m[(q->rear+q->msize-idx-1)%q->msize];
+	return 0;
 }
 
-static inline void *queue_front(queue_t *q,int idx)
+static inline int queue_front(queue_t *q,int idx,void **p)
 {
 	if(idx >= q->elem_n) {
-		fprintf(stderr,"out of range!\n");
-		return NULL;
+//		fprintf(stderr,"out of range!\n");
+		return 1;
 	}
 
-	return q->m[(q->front+idx)%q->msize];
+	*p = q->m[(q->front+idx)%q->msize];
+	return 0;
 }
 
 static inline void print_queue(queue_t *q)
@@ -37,6 +39,12 @@ static inline void print_queue(queue_t *q)
 	printf("q->front #%d\n",q->front);
 	printf("q->rear #%d\n",q->rear);
 	printf("q->elem_n #%d\n",q->elem_n);
+	printf("queue front ---> rear :\n");
+	int i;
+	for(i=0;i<q->elem_n;i++) {
+		printf("%0x ",q->m[(q->front+i)%q->msize]);
+	}
+	printf("\n");
 }
 
 static inline queue_t *init_queue(int msize)
@@ -125,18 +133,18 @@ static inline int en_queue(queue_t *q,void *p)
 	return 0;
 }
 
-static inline void *de_queue(queue_t *q)
+static inline int de_queue(queue_t *q,void **p)
 {
 	if(queue_empty(q)) {
 		fprintf(stderr,"empty queue!\n");
-		return NULL;
+		return 1;
 	}
 
-	void *p = q->m[q->front];
+	*p = q->m[q->front];
 	q->front = (q->front + 1) % q->msize;
 	q->elem_n--;
 
-	return p;
+	return 0;
 }
 
 #endif
