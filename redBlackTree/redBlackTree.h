@@ -41,7 +41,9 @@ rb_node_t * search_node(redBlackTree_t *T,int key);
 void rbt_insert(redBlackTree_t *T,int key);
 rb_node_t * rbt_delete(redBlackTree_t *T,int key);
 
-void printRedBlackTree(redBlackTree_t *T);
+#ifdef LEVEL_PRINT
 void rbt_level_traverse(redBlackTree_t *T);
+#endif
 
 #endif
+

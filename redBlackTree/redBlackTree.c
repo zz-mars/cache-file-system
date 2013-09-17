@@ -662,15 +662,14 @@ static inline void print_space(int n)
 	printf("%s",space_buf);
 }
 
-#define bin_power(n)	({	\
+#define bin_power(n)	( {	\
 		int _n = n;	\
 		int s = 1;	\
-		int i;	\
-		for(i=0;i<_n;i++) {	\
+		while(_n-- > 0) {	\
 			s *= 2;	\
 		}	\
 		s;	\
-	})
+	}	)
 
 static inline void init_indent_and_spaces(int dep,int *indent,int *spaces)
 {
