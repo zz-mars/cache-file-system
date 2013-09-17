@@ -7,11 +7,8 @@
 #define c(z)	(z)->c
 #define i(z)	(z)->i
 #define d(z)	(z)->data
-
 #ifdef LEVEL_PRINT
-
 #define last_in_this_level(z)	(z)->last_in_this_level
-
 #endif
 
 static rb_node_t nil_node;
@@ -38,15 +35,12 @@ static inline rb_node_t * new_rb_node(int key)
 	r(new_node) = NIL_NODE;
 	p(new_node) = NIL_NODE;
 	c(new_node) = RBT_RED;
-
 #ifdef LEVEL_PRINT
 	last_in_this_level(new_node) = 0;
 #endif
-
 	return new_node;
 }
 
-/* free the whole subtree */
 static void free_rbt(rb_node_t *root)
 {
 	if(root == NIL_NODE) {
@@ -62,148 +56,12 @@ void rbt_destory(redBlackTree_t *T)
 	free_rbt(T->root);
 }
 
-static int rbt_find_max_depth(rb_node_t *node)
-{
-	if(node == NIL_NODE) {
-		return 0;
-	}
-
-	int ld = rbt_find_max_depth(l(node));
-	int rd = rbt_find_max_depth(r(node));
-
-	return (ld>rd?(ld+1):(rd+1));
-}
-
-int rbt_max_depth(redBlackTree_t *T)
-{
-	return rbt_find_max_depth(T->root);
-}
-
-#ifdef LEVEL_PRINT
-
-static inline void print_space(int n)
-{
-	if(n <= 0) {
-		return;
-	}
-
-	if(n > 127) {
-		fprintf(stderr,"too much space!\n");
-		return;
-	}
-	char space_buf[128];
-	int i;
-	memset(space_buf,' ',n);
-	space_buf[n] = '\0';
-	printf("%s",space_buf);
-}
-
-#define bin_power(n)	({	\
-		int _n = n;	\
-		int s = 1;	\
-		int i;	\
-		for(i=0;i<_n;i++) {	\
-			s *= 2;	\
-		}	\
-		s;	\
-	})
-
-static inline void init_indent_and_spaces(int dep,int *indent,int *spaces)
-{
-	*spaces = bin_power(dep);
-	*indent = (*spaces)/2 - 1;
-//	printf("spaces %d indent %d\n",*spaces,*indent);
-}
-
-void rbt_level_traverse(redBlackTree_t *T)
-{
-	rb_node_t *node = T->root;
-	if(node == NIL_NODE) {
-		printf("NULL redBlackTree!\n");
-		return;
-	}
-
-	int max_dep = rbt_max_depth(T);
-
-//	printf("max depth %d\n",max_dep);
-
-	last_in_this_level(node) = 1;
-	queue_t *ltq = init_queue(INIT_QUEUE_SZ);
-	if(!ltq) {
-		return;
-	}
-
-	if(en_queue(ltq,node)) {
-		goto destroy_q_and_ret;
-	}
-
-	int dep = max_dep;
-	int indent,spaces;
-	init_indent_and_spaces(dep--,&indent,&spaces);
-
-	print_space(indent);
-	while(!queue_empty(ltq)) {
-		de_queue(ltq,(void**)&node);
-		if(node == NIL_NODE) {
-			print_space(spaces);
-			continue;
-		}
-
-		printf("%d%c",i(node),c(node));
-		print_space(spaces);
-
-		last_in_this_level(l(node)) = last_in_this_level(r(node)) = 0;
-		if(last_in_this_level(node)) {
-			printf("\n\n");
-			init_indent_and_spaces(dep--,&indent,&spaces);
-			print_space(indent);
-
-			if(l(node) == NIL_NODE && r(node) == NIL_NODE) {
-				rb_node_t *n;
-				int i = 0;
-				while(queue_rear(ltq,i++,(void**)&n) == 0) {
-					if(n == NIL_NODE) {
-						continue;
-					}
-					last_in_this_level(n) = 1;
-					break;
-				}
-				continue;
-			}
-
-			if(r(node) != NIL_NODE) {
-				last_in_this_level(r(node)) = 1;
-			}else if(l(node) != NIL_NODE) {
-				last_in_this_level(l(node)) = 1;
-			}
-		}
-
-		/* en_queue anyway */
-		if(en_queue(ltq,l(node))) {
-			break;
-		}
-
-		if(en_queue(ltq,r(node))) {
-			break;
-		}
-	}
-
-	printf("\n");
-
-destroy_q_and_ret:
-	destory_queue(ltq);
-}
-
-#endif
-
 enum {
 	RAW_SEARCH_NULL_TREE = 0,
 	RAW_SEARCH_LEFT_CHILD,
 	RAW_SEARCH_RIGHT_CHILD,
 	RAW_SEARCH_EXIST
 };
-
-/* raw_search_node : seach node for a given key */
 static rb_node_t * raw_search_node(redBlackTree_t *T,int key,int * di)
 {
 	rb_node_t * node = T->root;
@@ -234,9 +92,6 @@ static rb_node_t * raw_search_node(redBlackTree_t *T,int key,int * di)
 	return node;
 }
 
-/* search_node : search a node for a given key
- * if node is found,its pointer is returned
- * else NIL_NODE is returned */
 rb_node_t * search_node(redBlackTree_t *T,int key)
 {
 	int di;
@@ -770,3 +625,137 @@ rb_node_t * rbt_delete(redBlackTree_t *T,int key)
 //	return y;
 //}
 
+/* for level-traverse */
+static int rbt_find_max_depth(rb_node_t *node)
+{
+	if(node == NIL_NODE) {
+		return 0;
+	}
+
+	int ld = rbt_find_max_depth(l(node));
+	int rd = rbt_find_max_depth(r(node));
+
+	return (ld>rd?(ld+1):(rd+1));
+}
+
+int rbt_max_depth(redBlackTree_t *T)
+{
+	return rbt_find_max_depth(T->root);
+}
+
+#ifdef LEVEL_PRINT
+
+static inline void print_space(int n)
+{
+	if(n <= 0) {
+		return;
+	}
+
+	if(n > 127) {
+		fprintf(stderr,"too much space!\n");
+		return;
+	}
+	char space_buf[128];
+	int i;
+	memset(space_buf,' ',n);
+	space_buf[n] = '\0';
+	printf("%s",space_buf);
+}
+
+#define bin_power(n)	({	\
+		int _n = n;	\
+		int s = 1;	\
+		int i;	\
+		for(i=0;i<_n;i++) {	\
+			s *= 2;	\
+		}	\
+		s;	\
+	})
+
+static inline void init_indent_and_spaces(int dep,int *indent,int *spaces)
+{
+	*spaces = bin_power(dep);
+	*indent = (*spaces)/2 - 1;
+//	printf("spaces %d indent %d\n",*spaces,*indent);
+}
+
+void rbt_level_traverse(redBlackTree_t *T)
+{
+	rb_node_t *node = T->root;
+	if(node == NIL_NODE) {
+		printf("NULL redBlackTree!\n");
+		return;
+	}
+
+	int max_dep = rbt_max_depth(T);
+
+//	printf("max depth %d\n",max_dep);
+
+	last_in_this_level(node) = 1;
+	queue_t *ltq = init_queue(INIT_QUEUE_SZ);
+	if(!ltq) {
+		return;
+	}
+
+	if(en_queue(ltq,node)) {
+		goto destroy_q_and_ret;
+	}
+
+	int dep = max_dep;
+	int indent,spaces;
+	init_indent_and_spaces(dep--,&indent,&spaces);
+
+	print_space(indent);
+	while(!queue_empty(ltq)) {
+		de_queue(ltq,(void**)&node);
+		if(node == NIL_NODE) {
+			print_space(spaces);
+			continue;
+		}
+
+		printf("%d%c",i(node),c(node));
+		print_space(spaces);
+
+		last_in_this_level(l(node)) = last_in_this_level(r(node)) = 0;
+		if(last_in_this_level(node)) {
+			printf("\n\n");
+			init_indent_and_spaces(dep--,&indent,&spaces);
+			print_space(indent);
+
+			if(l(node) == NIL_NODE && r(node) == NIL_NODE) {
+				rb_node_t *n;
+				int i = 0;
+				while(queue_rear(ltq,i++,(void**)&n) == 0) {
+					if(n == NIL_NODE) {
+						continue;
+					}
+					last_in_this_level(n) = 1;
+					break;
+				}
+				continue;
+			}
+
+			if(r(node) != NIL_NODE) {
+				last_in_this_level(r(node)) = 1;
+			}else if(l(node) != NIL_NODE) {
+				last_in_this_level(l(node)) = 1;
+			}
+		}
+
+		/* en_queue anyway */
+		if(en_queue(ltq,l(node))) {
+			break;
+		}
+
+		if(en_queue(ltq,r(node))) {
+			break;
+		}
+	}
+
+	printf("\n");
+
+destroy_q_and_ret:
+	destory_queue(ltq);
+}
+
+#endif
