@@ -18,12 +18,10 @@ int main()
 		rbt_insert(&T,a[i]);
 	}
 
-	printRedBlackTree(&T);
 	rbt_level_traverse(&T);
 
 	rbt_delete(&T,381);
 
-	printRedBlackTree(&T);
 	rbt_level_traverse(&T);
 
 	rbt_destory(&T);
