@@ -83,6 +83,10 @@ int rbt_max_depth(redBlackTree_t *T)
 
 static inline void print_space(int n)
 {
+	if(n <= 0) {
+		return;
+	}
+
 	if(n > 127) {
 		fprintf(stderr,"too much space!\n");
 		return;
@@ -108,6 +112,7 @@ static inline void init_indent_and_spaces(int dep,int *indent,int *spaces)
 {
 	*spaces = bin_power(dep);
 	*indent = (*spaces)/2 - 1;
+//	printf("spaces %d indent %d\n",*spaces,*indent);
 }
 
 void rbt_level_traverse(redBlackTree_t *T)
@@ -120,7 +125,7 @@ void rbt_level_traverse(redBlackTree_t *T)
 
 	int max_dep = rbt_max_depth(T);
 
-	printf("max depth %d\n",max_dep);
+//	printf("max depth %d\n",max_dep);
 
 	last_in_this_level(node) = 1;
 	queue_t *ltq = init_queue(INIT_QUEUE_SZ);
@@ -134,7 +139,7 @@ void rbt_level_traverse(redBlackTree_t *T)
 
 	int dep = max_dep;
 	int indent,spaces;
-	init_indent_and_spaces(dep,&indent,&spaces);
+	init_indent_and_spaces(dep--,&indent,&spaces);
 
 	print_space(indent);
 	while(!queue_empty(ltq)) {
@@ -149,9 +154,10 @@ void rbt_level_traverse(redBlackTree_t *T)
 
 		last_in_this_level(l(node)) = last_in_this_level(r(node)) = 0;
 		if(last_in_this_level(node)) {
-			printf("\n");
-			init_indent_and_spaces(--dep,&indent,&spaces);
+			printf("\n\n");
+			init_indent_and_spaces(dep--,&indent,&spaces);
 			print_space(indent);
+
 			if(l(node) == NIL_NODE && r(node) == NIL_NODE) {
 				rb_node_t *n;
 				int i = 0;
