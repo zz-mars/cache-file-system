@@ -139,7 +139,8 @@ int main(int argc,char *argv[])
 //
 //	char *s = argv[1];
 
-	char *s = "#a+b*(c-d)-e/(f+g)#";
+//	char *s = "#a+b*(c-d)-e/f#";
+	char *s = "#a+b*(c-d)/e#";
 
 	tnode *root;
 	root = expr_to_tree(s);

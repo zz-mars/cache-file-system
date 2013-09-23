@@ -104,6 +104,15 @@ static inline void addNewTnode(tnode *newNode,tnode *parent,char lr)
 	p(newNode) = parent;
 }
 
+static inline void delTree(tnode *root)
+{
+	if(!root) {
+		return;
+	}
+	delTree(l(root));
+	delTree(r(root));
+}
+
 void inOrderTraverse(tnode *r);
 void inOrderTraverseNoRecur(tnode *r);
 
@@ -125,5 +134,9 @@ void preOrderThreading(tnode *r,tnode *head);
 void preOrderTraverseThread(tnode *head);
 
 #endif
+
+int build_tree_InPre(char *inOrderStr,char *preOrderStr,int len,tnode **root);
+
+int build_tree_InPost(char *inOrderStr,char *postOrderStr,int len,tnode **root);
 
 #endif
