@@ -47,9 +47,6 @@ adj_list_t *build_adj_list(void)
 		return NULL;
 	}
 
-//	printf("#%d vertices in this graph.\n");
-
-
 	/* new adj list */
 	adj_list_t *adj_list = (adj_list_t*)malloc(sizeof(adj_list_t));
 	if(!adj_list) {
@@ -84,8 +81,6 @@ adj_list_t *build_adj_list(void)
 		adj_list->heads[i].vertice = &adj_list->vts[i];
 		adj_list->heads[i].next = NULL;
 	}
-
-//	print_adj_list(adj_list);
 
 	/* make the adj list */
 	int m,n;
