@@ -27,13 +27,22 @@ typedef struct adj_list_node_t {
 	struct adj_list_node_t *next;
 } adj_list_node_t;
 
-typedef struct adj_list_t {
+typedef adj_list_t;
+
+typedef struct graph_t {
 	int vts_nr;
 	vertices_t *vts;
+	adj_list_t *current_adj_list;
+} graph_t;
+
+typedef struct adj_list_t {
+	graph_t *graph;
 	adj_list_node_t *heads;
 } adj_list_t;
 
 adj_list_t *build_adj_list(void);
+
+adj_list_t *transpose_adj_list(adj_list_t *adj_list);
 
 void destroy_adj_list(adj_list_t *adj_list);
 
