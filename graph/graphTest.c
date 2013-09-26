@@ -2,7 +2,7 @@
 #include <unistd.h>
 #include <stdio.h>
 
-#include "scc.h"
+#include "graph.h"
 
 int main()
 {
@@ -39,12 +39,17 @@ int main()
 	}
 	printf("\n");
 
+	/*
 	printf("------------- transpose_graph -------------\n");
 	if(transpose_graph(g)) {
 		fprintf(stderr,"transpose_graph fail!\n");
 	} else {
 		print_graph(g);
 	}
+	*/
+
+	printf("------------- strong_connection_component -------------\n");
+	print_strong_connection_component(g);
 
 	destroy_graph(g);
 

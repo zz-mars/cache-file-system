@@ -1,4 +1,4 @@
-#include "scc.h"
+#include "graph.h"
 #include "queue.h"
 #include <assert.h>
 
@@ -401,7 +401,7 @@ vertices_t *topological_sort(graph_t *g)
 
 void print_strong_connection_component(graph_t *g)
 {
-	adj_list_node_t *adj_list = g->adj_list;
+	topological_sort(g);
 
 	int *key = (int*)malloc(sizeof(int)*g->vts_nr);
 	if(!key) {
@@ -409,54 +409,40 @@ void print_strong_connection_component(graph_t *g)
 		return;
 	}
 
-	topological_sort(g);
-
 	int i;
 	for(i=0;i<g->vts_nr;i++) {
 		key[i] = i;
-		assert(g->vts[i].color == VT_COLOR_BLACK);
+		g->vts[i].color = VT_COLOR_WHITE;
 	}
 
-	/* sort according to finish time */
+	/* bubble-sort according to finish time */
 	for(i=0;i<g->vts_nr;i++) {
 		int j;
 		for(j=g->vts_nr-1;j>i;j--) {
-			if(g->vts[j].time.f > g->vts[j].time.f) {
-				key[j] ^= key[j-1];
+			if(g->vts[key[j]].time.f > g->vts[key[j-1]].time.f) {
+				key[j] = key[j] ^ key[j-1];
 				key[j-1] = key[j] ^ key[j-1];
 				key[j] = key[j] ^ key[j-1];
 			}
 		}
 	}
 
-	/* initialize before depth_first_search */
-	int i;
-	vertices_t *vt,*start_vt;
-	for(i=0;i<g->vts_nr;i++) {
-		vt = &g->vts[i];
-		vt->color = VT_COLOR_WHITE;
-		vt->distance = MAX_INFINITY;
-		vt->parent = vt->first_child = vt->next_sibling = NULL;
-		vt->time.d = vt->time.f = 0;
+	if(transpose_graph(g)) {
+		return;
 	}
-
-	/* start from the first vertice */
-	start_vt = &g->vts[0];
-	start_vt->parent = NULL;
-	start_vt->distance = 0;
 
 	/* initialize time */
 	t = 0;
 
+	vertices_t *vt;
 	for(i=0;i<g->vts_nr;i++) {
-		vt = &g->vts[i];
+		vt = &g->vts[key[i]];
 		if(vt->color == VT_COLOR_WHITE) {
-			dfs_visit(adj_list,vt,topsorthead);
+			dfs_visit(g->adj_list,vt,NULL);
 		}
+		printf("\n");
 	}
 
-	printf("\n");
-
-	return start_vt;
+	free(key);
 }
 

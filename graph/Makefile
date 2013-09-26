@@ -1,10 +1,10 @@
-BINS = sccTest
+BINS = graphTest
 
 CC_FLAGS = -g -o
 
 .PHONY : all
-all : sccTest
-sccTest : sccTest.o scc.o
+all : graphTest
+graphTest : graphTest.o graph.o
 	gcc $? $(CC_FLAGS) $@
 
 .PHONY : clean
