@@ -23,13 +23,13 @@ static inline void destroy_adj_list_node(adj_list_node_t *n)
 	}
 }
 
-void print_adj_list(adj_list_t *adj_list)
+void print_graph(graph_t *g)
 {
 	printf("---------- adjacent list basic infomation ----------\n");
-	printf("vertice_nr #%d\n",adj_list->graph.vts_nr);
+	printf("vertice_nr #%d\n",g->vts_nr);
 	int i;
-	for(i=0;i<adj_list->graph.vts_nr;i++) {
-		adj_list_node_t *p = &adj_list->heads[i];
+	for(i=0;i<g->vts_nr;i++) {
+		adj_list_node_t *p = &g->adj_list[i];
 		printf("#");
 		while(p) {
 			printf("%2d - ",p->vertice->key);
@@ -39,76 +39,46 @@ void print_adj_list(adj_list_t *adj_list)
 	}
 }
 
-graph_t *init_graph(int vts_nr)
+/* @destroy_adj_list : destroy the adj_list of a graph */
+static inline void destroy_adj_list(adj_list_node_t **adj_list_pp,int vts_nr)
 {
-	if(vts_nr <= 0) {
-		return NULL;
-	}
-
-	graph_t *g = (graph_t*)malloc(sizeof(graph));
-	if(!g) {
-		perror("malloc");
-		return NULL;
-	}
-
-	g->current_adj_list = NULL;
-	g->vts_nr = vts_nr;
-
-	g->vts = (vertices_t*)malloc(sizeof(vertices_t)*vts_nr);
-	if(!g->vts) {
-		perror("malloc");
-		free(g);
-		return NULL;
-	}
-
-	int i;
-	for(i=0;i<vts_nr;i++) {
-		g->vts[i].key = i+1;
-	}
-
-	return g;
-}
-
-static inline adj_list_t *init_adj_list(graph_t *g)
-{
-
-	/* new adj list */
-	adj_list_t *adj_list = (adj_list_t*)malloc(sizeof(adj_list_t));
-	if(!adj_list) {
-		perror("malloc");
-		return NULL;
-	}
-
-	adj_list->graph = g;
-
-	int vts_nr = g->vts_nr;
-
-	/* adj list heads */
-	adj_list->heads = (adj_list_node_t*)malloc(sizeof(adj_list_node_t)*vts_nr);
-	if(!adj_list->heads) {
-		perror("malloc");
-		free(adj_list);
-		return NULL;
-	}
-
-	/* initialize the heads */
-	for(i=0;i<vts_nr;i++) {
-		adj_list->heads[i].vertice = &adj_list->graph->vts[i];
-		adj_list->heads[i].next = NULL;
-	}
-
-	return adj_list;
-}
-
-static inline void destroy_adj_list(adj_list_t *adj_list)
-{
+	adj_list_node_t *adj_list = *adj_list_pp;
 	if(!adj_list) {
 		return;
 	}
 
-	if(adj_list->heads) {
-		free(adj_list->heads);
+	*adj_list_pp = NULL;
+
+	int i;
+	for(i=0;i<vts_nr;i++) {
+		adj_list_node_t	*n = adj_list[i].next;
+		while(n) {
+			/* get next node before free this one */
+			adj_list_node_t *next = n->next;
+			destroy_adj_list_node(n);
+			n = next;
+		}
 	}
+
+	free(adj_list);
+}
+
+static inline adj_list_node_t *init_adj_list(vertices_t *vts,int vts_nr)
+{
+	adj_list_node_t *adj_list = (adj_list_node_t*)malloc(sizeof(adj_list_node_t)*vts_nr);
+	if(!adj_list) {
+		perror("malloc");
+		return NULL;
+	}
+
+	/* initialize the heads */
+	int i;
+	for(i=0;i<vts_nr;i++) {
+		adj_list[i].vertice = &vts[i];
+		adj_list[i].next = NULL;
+	}
+
+	return adj_list;
 }
 
 void destroy_graph(graph_t *g)
@@ -121,18 +91,45 @@ void destroy_graph(graph_t *g)
 		free(g->vts);
 	}
 
-	destroy_adj_list(g->current_adj_list);
+	destroy_adj_list(&g->adj_list,g->vts_nr);
 
 	free(g);
 }
 
-adj_list_t *build_adj_list(graph_t *g)
+graph_t *build_graph_from_input(void)
 {
-	int vts_nr = g->vts_nr;
+	int vts_nr;
+	scanf("%d",&vts_nr);
 
-	adj_list_t *adj_list = init_adj_list(g);
-	if(!adj_list) {
+	if(vts_nr <= 0) {
+		fprintf(stderr,"invalid arg!\n");
 		return NULL;
+	}
+
+	graph_t *g = (graph_t*)malloc(sizeof(graph_t));
+	if(!g) {
+		perror("malloc");
+		return NULL;
+	}
+
+	g->vts_nr = vts_nr;
+	g->adj_list = NULL;
+
+	g->vts = (vertices_t*)malloc(sizeof(vertices_t)*vts_nr);
+	if(!g->vts) {
+		perror("malloc");
+		goto err_lb1;
+	}
+
+	int i;
+	for(i=0;i<vts_nr;i++) {
+		g->vts[i].key = i+1;
+	}
+
+	g->adj_list = init_adj_list(g->vts,g->vts_nr);
+	if(!g->adj_list) {
+		fprintf(stderr,"init_adj_list fail!\n");
+		goto err_lb1;
 	}
 
 	/* make the adj list */
@@ -148,60 +145,60 @@ adj_list_t *build_adj_list(graph_t *g)
 		m--;
 		n--;
 
-		adj_list_node_t *p = new_adj_list_node(&adj_list->graph.vts[n]);
+		adj_list_node_t *p = new_adj_list_node(&g->vts[n]);
 		if(!p) {
 			goto err_lb1;
 		}
 
-		p->next = adj_list->heads[m].next;
-		adj_list->heads[m].next = p;
+		p->next = g->adj_list[m].next;
+		g->adj_list[m].next = p;
 		scanf("%d%d",&m,&n);
 	}
 
-	return adj_list;
+	return g;
 
 	/* exit gracefully */
 err_lb1:
-	for(i=0;i<vts_nr;i++) {
-		adj_list_node_t *p = adj_list->heads[i].next;
-		while(p) {
-			destroy_adj_list_node(p);
-			p = p->next;
-		}
-	}
-
-	destroy_adj_list(adj_list);
-	g->current_adj_list = NULL;
-
+	destroy_graph(g);
 	return NULL;
 }
 
-adj_list_t *transpose_adj_list(adj_list_t *old_adj_list)
+int transpose_graph(graph_t *g)
 {
-	/* new adj list */
-	adj_list_t *adj_list = init_adj_list(old_adj_list->graph);
+	int vts_nr = g->vts_nr;
+
+	adj_list_node_t *adj_list = init_adj_list(g->vts,vts_nr);
 	if(!adj_list) {
-		perror("malloc");
-		return NULL;
+		fprintf(stderr,"init_adj_list fail!\n");
+		return 1;
 	}
 
-	int vts_nr = old_adj_list->graph->vts_nr;
-
-	/* transpose */
-
-	/* exit gracefully */
-err_lb1:
+	int i;
 	for(i=0;i<vts_nr;i++) {
-		adj_list_node_t *p = adj_list->heads[i].next;
-		while(p) {
-			destroy_adj_list_node(p);
-			p = p->next;
+		adj_list_node_t *n = g->adj_list[i].next;
+		while(n) {
+			int j = n->vertice->key-1;
+			adj_list_node_t *m = new_adj_list_node(&g->vts[i]);
+			if(!m) {
+				goto err_lb1;
+			}
+
+			m->next = adj_list[j].next;
+			adj_list[j].next = m;
+
+			n = n->next;
 		}
 	}
 
-	destroy_adj_list(adj_list);
+	destroy_adj_list(&g->adj_list,vts_nr);
+	g->adj_list = adj_list;
+	return 0;
 
-	return NULL;
+	/* exit gracefully */
+err_lb1:
+	destroy_adj_list(&adj_list,vts_nr);
+
+	return 1;
 }
 
 #define VT_COLOR_WHITE	'W'
@@ -221,20 +218,22 @@ err_lb1:
  * GRAY  : discoverd,now in queue
  * BLACK : visied,now out of queue 
  * */
-vertices_t *breadth_first_search(adj_list_t *adj_list)
+vertices_t *breadth_first_search(graph_t *g)
 {
+	adj_list_node_t *adj_list = g->adj_list;
+
 	/* initialize vertices */
 	int i;
 	vertices_t *vt,*start_vt;
-	for(i=0;i<adj_list->graph.vts_nr;i++) {
-		vt = &adj_list->graph.vts[i];
+	for(i=0;i<g->vts_nr;i++) {
+		vt = &g->vts[i];
 		vt->color = VT_COLOR_WHITE;
 		vt->distance = MAX_INFINITY;
 		vt->parent = vt->first_child = vt->next_sibling = NULL;
 	}
 
 	/* start from the first vertice */
-	start_vt = &adj_list->graph.vts[0];
+	start_vt = &g->vts[0];
 	start_vt->parent = NULL;
 	start_vt->distance = 0;
 	
@@ -257,7 +256,7 @@ vertices_t *breadth_first_search(adj_list_t *adj_list)
 		/* visit */
 		visit(vt);
 		adj_list_node_t *node;
-		for(node=adj_list->heads[vt->key-1].next;node!=NULL;node=node->next) {
+		for(node=g->adj_list[vt->key-1].next;node!=NULL;node=node->next) {
 			vertices_t *child_vt = node->vertice;
 			if(child_vt->color == VT_COLOR_WHITE) {
 
@@ -320,16 +319,18 @@ ret:
 /* depth first search */
 int t;
 
-static void dfs_visit(adj_list_t *adj_list,vertices_t *vt,vertices_t **topsorthead)
+static void dfs_visit(adj_list_node_t *adj_list,vertices_t *vt,vertices_t **topsorthead)
 {
 	vt->time.d = ++t;
 	vt->color = VT_COLOR_GRAY;
 
-	visit(vt);
+	if(!topsorthead) {
+		visit(vt);
+	}
 
 	vertices_t *child_vt;
 	adj_list_node_t *node;
-	for(node=adj_list->heads[vt->key-1].next;node!=NULL;node=node->next) {
+	for(node=adj_list[vt->key-1].next;node!=NULL;node=node->next) {
 		child_vt = node->vertice;
 		if(child_vt->color == VT_COLOR_WHITE) {
 			child_vt->distance = vt->distance + 1;
@@ -351,13 +352,15 @@ static void dfs_visit(adj_list_t *adj_list,vertices_t *vt,vertices_t **topsorthe
 	}
 }
 
-vertices_t *raw_depth_first_search(adj_list_t *adj_list,vertices_t **topsorthead)
+vertices_t *raw_depth_first_search(graph_t *g,vertices_t **topsorthead)
 {
+	adj_list_node_t *adj_list = g->adj_list;
+
 	/* initialize before depth_first_search */
 	int i;
 	vertices_t *vt,*start_vt;
-	for(i=0;i<adj_list->graph.vts_nr;i++) {
-		vt = &adj_list->graph.vts[i];
+	for(i=0;i<g->vts_nr;i++) {
+		vt = &g->vts[i];
 		vt->color = VT_COLOR_WHITE;
 		vt->distance = MAX_INFINITY;
 		vt->parent = vt->first_child = vt->next_sibling = NULL;
@@ -365,15 +368,15 @@ vertices_t *raw_depth_first_search(adj_list_t *adj_list,vertices_t **topsorthead
 	}
 
 	/* start from the first vertice */
-	start_vt = &adj_list->graph.vts[0];
+	start_vt = &g->vts[0];
 	start_vt->parent = NULL;
 	start_vt->distance = 0;
 
 	/* initialize time */
 	t = 0;
 
-	for(i=0;i<adj_list->graph.vts_nr;i++) {
-		vt = &adj_list->graph.vts[i];
+	for(i=0;i<g->vts_nr;i++) {
+		vt = &g->vts[i];
 		if(vt->color == VT_COLOR_WHITE) {
 			dfs_visit(adj_list,vt,topsorthead);
 		}
@@ -384,15 +387,76 @@ vertices_t *raw_depth_first_search(adj_list_t *adj_list,vertices_t **topsorthead
 	return start_vt;
 }
 
-vertices_t *depth_first_search(adj_list_t *adj_list)
+vertices_t *depth_first_search(graph_t *g)
 {
-	return raw_depth_first_search(adj_list,NULL);
+	return raw_depth_first_search(g,NULL);
 }
 
-vertices_t *topological_sort(adj_list_t *adj_list)
+vertices_t *topological_sort(graph_t *g)
 {
 	vertices_t *tophead = NULL;
-	raw_depth_first_search(adj_list,&tophead);
+	raw_depth_first_search(g,&tophead);
 	return tophead;
+}
+
+void print_strong_connection_component(graph_t *g)
+{
+	adj_list_node_t *adj_list = g->adj_list;
+
+	int *key = (int*)malloc(sizeof(int)*g->vts_nr);
+	if(!key) {
+		perror("malloc");
+		return;
+	}
+
+	topological_sort(g);
+
+	int i;
+	for(i=0;i<g->vts_nr;i++) {
+		key[i] = i;
+		assert(g->vts[i].color == VT_COLOR_BLACK);
+	}
+
+	/* sort according to finish time */
+	for(i=0;i<g->vts_nr;i++) {
+		int j;
+		for(j=g->vts_nr-1;j>i;j--) {
+			if(g->vts[j].time.f > g->vts[j].time.f) {
+				key[j] ^= key[j-1];
+				key[j-1] = key[j] ^ key[j-1];
+				key[j] = key[j] ^ key[j-1];
+			}
+		}
+	}
+
+	/* initialize before depth_first_search */
+	int i;
+	vertices_t *vt,*start_vt;
+	for(i=0;i<g->vts_nr;i++) {
+		vt = &g->vts[i];
+		vt->color = VT_COLOR_WHITE;
+		vt->distance = MAX_INFINITY;
+		vt->parent = vt->first_child = vt->next_sibling = NULL;
+		vt->time.d = vt->time.f = 0;
+	}
+
+	/* start from the first vertice */
+	start_vt = &g->vts[0];
+	start_vt->parent = NULL;
+	start_vt->distance = 0;
+
+	/* initialize time */
+	t = 0;
+
+	for(i=0;i<g->vts_nr;i++) {
+		vt = &g->vts[i];
+		if(vt->color == VT_COLOR_WHITE) {
+			dfs_visit(adj_list,vt,topsorthead);
+		}
+	}
+
+	printf("\n");
+
+	return start_vt;
 }
 

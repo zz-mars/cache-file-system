@@ -6,15 +6,15 @@
 
 int main()
 {
-	adj_list_t *adj_list = build_adj_list();
-	if(!adj_list) {
+	graph_t *g = build_graph_from_input();
+	if(!g) {
 		return 1;
 	}
 
-	print_adj_list(adj_list);
+	print_graph(g);
 
 	printf("------------- breadth first search -------------\n");
-	vertices_t *root = breadth_first_search(adj_list);
+	vertices_t *root = breadth_first_search(g);
 	if(root){
 		printf("------------- breadth first search tree -------------\n");
 		print_search_tree(root);
@@ -23,7 +23,7 @@ int main()
 	}
 
 	printf("------------- depth first search -------------\n");
-	root = depth_first_search(adj_list);
+	root = depth_first_search(g);
 	if(root){
 		printf("------------- depth first search tree -------------\n");
 		print_search_tree(root);
@@ -32,14 +32,21 @@ int main()
 	}
 
 	printf("------------- topological_sort -------------\n");
-	root = topological_sort(adj_list);
+	root = topological_sort(g);
 	while(root) {
 		printf("%d ",root->key);
 		root = root->next;
 	}
 	printf("\n");
 
-	destroy_adj_list(adj_list);
+	printf("------------- transpose_graph -------------\n");
+	if(transpose_graph(g)) {
+		fprintf(stderr,"transpose_graph fail!\n");
+	} else {
+		print_graph(g);
+	}
+
+	destroy_graph(g);
 
 	return 0;
 }

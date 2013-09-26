@@ -27,34 +27,26 @@ typedef struct adj_list_node_t {
 	struct adj_list_node_t *next;
 } adj_list_node_t;
 
-typedef adj_list_t;
-
 typedef struct graph_t {
 	int vts_nr;
 	vertices_t *vts;
-	adj_list_t *current_adj_list;
+	adj_list_node_t *adj_list;
 } graph_t;
 
-typedef struct adj_list_t {
-	graph_t *graph;
-	adj_list_node_t *heads;
-} adj_list_t;
+graph_t *build_graph_from_input(void);
+void destroy_graph(graph_t *g);
 
-adj_list_t *build_adj_list(void);
+int transpose_graph(graph_t *g);
 
-adj_list_t *transpose_adj_list(adj_list_t *adj_list);
+vertices_t *breadth_first_search(graph_t *g);
+vertices_t *depth_first_search(graph_t *g);
 
-void destroy_adj_list(adj_list_t *adj_list);
-
-void print_adj_list(adj_list_t *adj_list);
-
-vertices_t *breadth_first_search(adj_list_t *adj_list);
-
-vertices_t *depth_first_search(adj_list_t *adj_list);
-
+void print_graph(graph_t *g);
 void print_search_tree(vertices_t *root);
 
-vertices_t *topological_sort(adj_list_t *adj_list);
+vertices_t *topological_sort(graph_t *g);
+
+void print_strong_connection_component(graph_t *g);
 
 #endif
 
