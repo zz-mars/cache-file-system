@@ -1,4 +1,4 @@
-CC_FLAGS = -Wall -pedantic -std=c99 -o
+CC_FLAGS = -Wall -pedantic -std=c99 -g -o
 BINS = bp_manual bp_use_lib print
 
 .PHONY : all
