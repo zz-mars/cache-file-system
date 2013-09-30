@@ -1,11 +1,11 @@
-BINS = cut_rod cut_rod_dp
+BINS = cut_rod matrix_mul
 
 .PHONY : all
-all : cut_rod cut_rod_dp
+all : cut_rod matrix_mul
 cut_rod : cut_rod.o
 	gcc $? -g -o $@
 
-cut_rod_dp : dp_cut_rod.o
+matrix_mul : matrix_chain_multiplication.o
 	gcc $? -g -o $@
 	
 .PHONY : clean
