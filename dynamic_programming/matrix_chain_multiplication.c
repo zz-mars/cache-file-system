@@ -100,37 +100,20 @@ static void multi_chain_matrix(void)
 {
 	int i,j,k,v,l;
 	for(l=2;l<=MATRIX_N;l++){
-#ifdef DBGMSG
-		printf("--------- length #%d ----------\n",l);
-#endif
 		for(i=1;i<=MATRIX_N-l+1;i++){
 			j = i+l-1;
-#ifdef DBGMSG
-			printf("---- i#%d\tj#%d ----\n",i,j);
-#endif
 			for(k=i;k<j;k++){
-#ifdef DBGMSG
-				printf("k#%d\n",k);
-#endif
 				v = M(i,k)+M(k+1,j)+p[i-1]*p[k]*p[j];
-#ifdef DBGMSG
-				printf("M(%d,%d) #%d\n",i,j,M(i,j));
-				printf("S(%d,%d) #%d\n",i,j,S(i,j));
-				printf("v = M(i,k)+M(k+1,j)+p[i-1]*p[k]*p[j] == #%d\n",v);
-#endif
 				if(v < M(i,j)){
 					M(i,j) = v;
 					S(i,j) = k;
 				}
-#ifdef DBGMSG
-				printf("new M(%d,%d) #%d\n",i,j,M(i,j));
-				printf("new S(%d,%d) #%d\n",i,j,S(i,j));
-#endif
 			}
 		}
 	}
 	return;
 }
+
 int main()
 {
 	init_ms_matrix();
