@@ -1,8 +1,10 @@
 #include"glob.h"
+
 //#define DBGMSG
 #define ZMAX_INT	0x7fffffff
 #define MATRIX_N	6
 #define MS_MATRIX_L	(MATRIX_N*MATRIX_N)
+
 static int ms_matrix[MS_MATRIX_L];
 static int p[MATRIX_N+1] = {30,35,15,5,10,20,25};
 #define INDEX_OF(i,j)	(((i)-1)*MATRIX_N+(j)-1)

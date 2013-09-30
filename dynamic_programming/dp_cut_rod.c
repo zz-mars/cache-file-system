@@ -1,4 +1,4 @@
-#include"glob.h"
+#include <stdio.h>
 #define ELEM_N	10
 static int recurse_depth = 0;
 static int p[ELEM_N] = {1,5,8,9,10,17,17,20,24,30};
