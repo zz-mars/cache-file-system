@@ -1,4 +1,7 @@
 #include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define minv(x,y)	({	\
 		typeof(x) _x = x;	\
@@ -6,14 +9,15 @@
 		_x<_y?_x:_y;	\
 		})
 
-#define ELEM_N	128
-
-char ss[ELEM_N] = "waabwswfd";
-
-int longest_palindrome_sub_string(char *str)
+int longest_palindrome_sub_string(char *str,unsigned int *lps,unsigned int *idx)
 {
+	if(!lps || !idx) {
+		return 1;
+	}
+
 	unsigned int _len = strlen(str);
 	if(_len == 0) {
+		*lps = *idx = 0;
 		return 0;
 	}
 
@@ -21,15 +25,15 @@ int longest_palindrome_sub_string(char *str)
 
 	char *s = (char*)malloc(len);
 	if(!s) {
-		return -1;
+		return 1;
 	}
 
 	unsigned int *p = (unsigned int*)malloc(sizeof(unsigned int)*len);
 	if(!p) {
 		free(s);
-		return -1;
+		return 1;
 	}
-	memset(p,0,sizeof(int)*len);
+	memset(p,0,sizeof(unsigned int)*len);
 
 	int i;
 	for(i=0;i<_len;i++) {
@@ -38,7 +42,10 @@ int longest_palindrome_sub_string(char *str)
 	}
 	s[len-1] = '#';
 
-	printf("%s\n",s);
+	for(i=0;i<len;i++) {
+		printf("%c ",s[i]);
+	}
+	printf("\n");
 
 	unsigned int id = 0;
 	unsigned int mx = 0;
@@ -62,9 +69,44 @@ int longest_palindrome_sub_string(char *str)
 		}
 	}
 
+	unsigned int _idx = 0;
+	unsigned int _lps = 0;
+
+	for(i=0;i<len;i++) {
+		if(p[i] > _lps) {
+			_lps = p[i];
+			_idx = i;
+		}
+		printf("%d ",p[i]);
+	}
+	printf("\n");
+
+	*lps = _lps - 1;
+	*idx = (_idx-_lps)/2 + 1;
+
 	free(s);
 	free(p);
 
-	return;
+	return 0;
 }
 
+int main(int argc,char *argv[])
+{
+	if(argc != 2) {
+		fprintf(stderr,"invalid arg!\n");
+		return 1;
+	}
+
+	char *s = argv[1];
+//	char *s = "waabwswfd";
+
+	int lps,idx;
+	if(longest_palindrome_sub_string(s,&lps,&idx)) {
+		perror("err");
+		return 1;
+	}
+	
+	printf("lps %d	idx %d\n",lps,idx);
+
+	return 0;
+}
