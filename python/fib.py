@@ -1,5 +1,10 @@
 #!/usr/bin/python
 
+'''
+For more detail,visit
+http://www.cnblogs.com/Alexander-Lee/archive/2010/09/16/1827587.html
+'''
+
 import sys
 
 class TailRecurseException:
